@@ -116,7 +116,8 @@ public:
 	};
 
 	/// One trigger at `time`: the next step of the recipe. Returns how many
-	/// ops it added (0 for a paper laid by Auto Paper).
+	/// ops it added (0 for a paper laid by Auto Paper, and for a trigger
+	/// Auto Paper ignores because the last stroke is still moving).
 	int Trigger( double time, const Settings& s );
 	/// Lay the sheet: every op and the baked map go; the next trigger starts
 	/// the drops again.

@@ -188,6 +188,12 @@ int Bath::Trigger( double time, const Settings& s )
 	{
 		if( s.autoPaper )
 		{
+			//The sheet waits for the last stroke to finish: a trigger before
+			//then does nothing, so the finished marbling is seen whole, for
+			//at least one trigger's interval, however fast the triggers come.
+			for( const Op& o : ops )
+				if( o.Progress( time ) < 1.0 )
+					return 0;
 			Paper();
 			return 0;
 		}

@@ -21,7 +21,8 @@ bool startRig( Rig& rig, int w, int h, const Perturb& perturb, const Floats* pic
 
 /// The map read out of a uv-card render: Q (centred px, y up) where it can
 /// be recovered (inside the window by half a texel), and a drop's label
-/// where B is 1 (label cards: R = k / 32).
+/// where B is 1 (label cards: R = k / 32). A pixel whose alpha is not 1 is
+/// neither (label -1): every card is opaque.
 struct Mapped
 {
 	int w = 0, h = 0;
@@ -55,8 +56,16 @@ Mapped readMap( const Rig& rig )
 	m.valid.resize( n );
 	for( size_t k = 0; k < n; ++k )
 	{
-		const double r = o[ k * 4 ], g = o[ k * 4 + 1 ], b = o[ k * 4 + 2 ];
-		if( b == 0.0 )
+		const double r = o[ k * 4 ], g = o[ k * 4 + 1 ], b = o[ k * 4 + 2 ], a = o[ k * 4 + 3 ];
+		//The cards are opaque, so every pixel, ink or map, must be too: the
+		//output is unpremultiplied, and ink thinned evenly in all four
+		//channels reads back with the right colour and only the alpha short.
+		if( std::fabs( a - 1.0 ) > 1e-6 )
+		{
+			m.label[ k ] = -1;
+			m.valid[ k ] = 0;
+		}
+		else if( b == 0.0 )
 		{
 			m.label[ k ] = 0;
 			m.qx[ k ]    = r * m.w - 0.5 * m.w;
@@ -548,8 +557,8 @@ InkCensus census( const Mapped& m )
 
 int runInk( const Perturb& perturb )
 {
-	std::printf( "\n=== ink: no ink lost or created. Through Nonpareil's real triggers (drops on label cards), every pixel is one ink exactly or the "
-	             "paper and no label appears that was not dropped; in a marbling kept inside the window, every drop's ink keeps pi r^2 within the "
+	std::printf( "\n=== ink: no ink lost or created. Through Nonpareil's real triggers (drops on label cards), every pixel is one ink exactly, colour and "
+	             "alpha, or the paper and no label appears that was not dropped; in a marbling kept inside the window, every drop's ink keeps pi r^2 within the "
 	             "pixel grid's bound, traced exactly or baked after every op\n" );
 	for( const Raster& raster : kRasters )
 		for( bool bakeAll : { false, true } )

@@ -307,6 +307,35 @@ int runPaper( const Perturb& perturb )
 			            raster.w, raster.h, autoPaper ? "Auto Paper's trigger" : "Paper", movedBefore, differ, logged ? "yes" : "NO",
 			            static_cast< int >( ops.size() ), drops ) );
 		}
+	//Auto Paper waits for the last stroke: Stone, eight drops of the largest
+	//size a trigger, so the drop stage ends on the second trigger (8 pi
+	//0.25^2 = 1.57 frame heights squared, short of the window's 16/9); a
+	//trigger while those drops still grow does nothing, and the first one
+	//after they finish lays the sheet.
+	for( const Raster& raster : kRasters )
+	{
+		Rig rig;
+		if( !startRig( rig, raster.w, raster.h, perturb ) )
+			return 1;
+		rig.Set( PT_PATTERN, static_cast< float >( Pattern::Stone ) );
+		rig.Set( PT_DROP_RATE, ParamFromDropRate( 8 ) );
+		rig.Set( PT_DROP_SIZE, ParamFromDropRadius( 0.25 ) );
+		rig.Set( PT_SPEED, ParamFromStrokeSeconds( 2.0 ) );//drops grow over 1 s
+		if( !rig.Render( 5 ) || !rig.Press( PT_TRIGGER ) || !rig.Render( 2 ) || !rig.Press( PT_TRIGGER ) )
+			return 1;
+		const bool done   = rig.plugin.BathForTest().CurrentStage() == Bath::Stage::Done;
+		const size_t made = rig.plugin.BathForTest().Ops().size();
+		if( !rig.Render( 20 ) || !rig.Press( PT_TRIGGER ) )
+			return 1;
+		const bool heldPaper = rig.plugin.BathForTest().Papers() == 0 && rig.plugin.BathForTest().Ops().size() == made;
+		if( !rig.Render( 60 ) || !rig.Press( PT_TRIGGER ) )
+			return 1;
+		const bool laid = rig.plugin.BathForTest().Papers() == 1 && rig.plugin.BathForTest().Ops().empty();
+		Check( done && made == 16 && heldPaper && laid,
+		       fmt( "%dx%d, Auto Paper: the drop stage done on the second trigger (%s, %zu drops, each growing for 1 s); a trigger 21 frames "
+		            "(0.35 s) later lays nothing (%s); one 82 frames (1.37 s) later, after they finished, lays the sheet (%s)",
+		            raster.w, raster.h, done ? "yes" : "NO", made, heldPaper ? "yes" : "NO", laid ? "yes" : "NO" ) );
+	}
 	return Verdict();
 }
 
