@@ -642,51 +642,71 @@ int runInk( const Perturb& perturb )
 //===========================================================================
 int runUndo( const Perturb& perturb )
 {
-	std::printf( "\n=== undo: a comb drawn back along the same tines restores every pixel; a bisecting return (offset s/2, [BAB]) does not, and "
-	             "matches [Lu] Eq. 1 with d' composed in double\n" );
+	std::printf( "\n=== undo: a comb drawn back along the same tines restores every pixel, wavy or straight; a bisecting return (offset s/2, [BAB]) "
+	             "does not; every stroke, comb, wavy comb, circle and vortex, matches [Lu]'s Eq. 1 and 2 composed in double\n" );
+	struct Case
+	{
+		const char* what;
+		std::vector< Op > ops;
+		bool identity;
+	};
+	//A diagonal comb, so M and N are not the axes. N flips with M, so the same
+	//tines drawn back have offset -offset.
+	const double mx = 0.6, my = 0.8, s = 0.12, a = 0.15, l = 0.02, k = 2.0 * kPi / 0.5;
+	const std::vector< Case > cases = {
+		{ "back along the same tines", { combOp( mx, my, 0.0, s, a, l ), combOp( -mx, -my, 0.0, s, a, l ) }, true },
+		//The same wavy path drawn back: with M and N flipped, u = P.M flips
+		//too, so the wave's phase must be negated for N w(u) to be one curve.
+		{ "a wavy comb and back", { combOp( mx, my, 0.0, s, a, l, 0.02, k, 0.3 ), combOp( -mx, -my, 0.0, s, a, l, 0.02, k, -0.3 ) }, true },
+		{ "a bisecting return", { combOp( mx, my, 0.0, s, a, l ), combOp( -mx, -my, -0.5 * s, s, a, l ) }, false },
+		{ "a wavy comb", { combOp( 1, 0, 0.01, 0.2, 0.08, 0.03, 0.03, k, 0.3 ) }, false },
+		{ "a circular stroke", { circleOp( 0.1, -0.05, 0.2, 0.1, 0.04 ) }, false },
+		{ "a vortex", { circleOp( -0.2, 0.05, 0.0, 0.1, 0.06 ) }, false },
+	};
 	for( const Raster& raster : kRasters )
 	{
 		const double H = raster.h;
-		//A diagonal comb, so M and N are not the axes.
-		const double mx = 0.6, my = 0.8, s = 0.12, a = 0.15, l = 0.02;
-		for( bool bisect : { false, true } )
+		for( const Case& c : cases )
 		{
 			const Floats uv = uvCard( raster.w, raster.h );
 			Rig rig;
 			if( !startRig( rig, raster.w, raster.h, perturb, &uv ) )
 				return 1;
-			//N flips with M, so the same tines back have offset -offset.
-			const std::vector< Op > model = { combOp( mx, my, 0.0, s, a, l ), combOp( -mx, -my, bisect ? -0.5 * s : 0.0, s, a, l ) };
-			for( const Op& o : model )
+			double alphaOverLambda = 1.0;
+			for( const Op& o : c.ops )
+			{
+				alphaOverLambda = std::max( alphaOverLambda, o.alpha / o.lambda );
 				if( !injectAndRender( rig, o, 1, uv ) )
 					return 1;
-			const Mapped m   = readMap( rig );
-			const double tol = 1e-3 + 8.0 * kEps32 * m.w * ( 1.0 + a / l );
+			}
+			const Mapped m = readMap( rig );
+			//Float's roundoff of a position (2^-24 x the raster) moves d, and
+			//the shift's slope alpha/lambda carries it; a vortex's theta is
+			//steep near its centre, so pixels within 2 lambda of one are left out.
+			const double tol = 1e-3 + 8.0 * kEps32 * m.w * ( 1.0 + alphaOverLambda );
 			double worst = 0.0, sumMove = 0.0;
 			int measured = 0;
 			for( int j = 0; j < m.h; ++j )
 				for( int i = 0; i < m.w; ++i )
 				{
 					const size_t at = m.at( i, j );
+					bool nearCentre = false;
+					for( const Op& o : c.ops )
+						nearCentre = nearCentre || ( o.type == OpType::Circle && std::hypot( m.px( i ) - o.cx * H, m.py( j ) - o.cy * H ) < 2.0 * o.lambda * H );
 					double x = m.px( i ), y = m.py( j );
-					backThroughAll( model, H, x, y );
-					if( !m.valid[ at ] || std::fabs( x ) > 0.5 * m.w - 1.0 || std::fabs( y ) > 0.5 * m.h - 1.0 )
+					backThroughAll( c.ops, H, x, y );
+					if( nearCentre || !m.valid[ at ] || std::fabs( x ) > 0.5 * m.w - 1.0 || std::fabs( y ) > 0.5 * m.h - 1.0 )
 						continue;
 					++measured;
 					worst = std::max( worst, std::hypot( m.qx[ at ] - x, m.qy[ at ] - y ) );
 					sumMove += std::hypot( m.qx[ at ] - m.px( i ), m.qy[ at ] - m.py( j ) );
 				}
 			const double meanMove = measured ? sumMove / measured : 0.0;
-			if( !bisect )
-				Check( worst <= tol && measured > 0,
-				       fmt( "%dx%d, back along the same tines: worst |Q - P| %.2e px over %d pixels (tolerance %.2e: 1e-3 + 8 x 2^-24 x width x "
-				            "(1 + alpha/lambda))",
-				            raster.w, raster.h, worst, measured, tol ) );
-			else
-				Check( worst <= tol && meanMove > 1.0 && measured > 0,
-				       fmt( "%dx%d, bisecting return: off the double composition by at most %.2e px (tolerance %.2e); it moved the ink %.2f px on "
-				            "average, so it is no undo",
-				            raster.w, raster.h, worst, tol, meanMove ) );
+			Check( worst <= tol && measured > m.w * m.h / 2 && ( c.identity ? meanMove <= tol : meanMove > 1.0 ),
+			       fmt( "%dx%d, %-26s off %s by at most %.2e px over %d pixels (tolerance %.2e: 1e-3 + 8 x 2^-24 x width x (1 + alpha/lambda)); "
+			            "moved %.2f px on average",
+			            raster.w, raster.h, c.what, c.identity ? "the identity (and the double composition)" : "the double composition", worst, measured,
+			            tol, meanMove ) );
 		}
 	}
 	return Verdict();
