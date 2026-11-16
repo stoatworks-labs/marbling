@@ -282,10 +282,15 @@ void Bath::Paper()
 	++papers;
 }
 
-int Bath::BakeCount() const
+int Bath::BakeCount( double now ) const
 {
 	const int n = static_cast< int >( ops.size() );
-	return n > kBakeAbove ? n - kBakeKeep : 0;
+	if( n <= kBakeAbove )
+		return 0;
+	int finished = 0;
+	while( finished < n && ops[ static_cast< size_t >( finished ) ].Progress( now ) >= 1.0 )
+		++finished;
+	return std::max( std::min( finished, n - kBakeKeep ), n - kBakeAbove );
 }
 
 void Bath::Baked( int count )

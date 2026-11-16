@@ -54,7 +54,8 @@ enum Hook : int
 	kHookPushExponent = 1 << 1,///< a drop's push sqrt( 1 - r^2/rho^2 ) given exponent 0.6
 	kHookFoldSpacing  = 1 << 2,///< the comb's fold d' taken modulo 1.25 s
 	kHookNearestMap   = 1 << 3,///< the map's live texels read nearest, not bilinear
-	kHookNoPremultiply = 1 << 4///< the clip sampled straight: what is under alpha 0 leaks
+	kHookNoPremultiply = 1 << 4,///< the clip sampled straight: what is under alpha 0 leaks
+	kHookBlendInk     = 1 << 5 ///< the map read bilinear everywhere: inks blended at their edges
 };
 
 } // namespace marbling::shaders

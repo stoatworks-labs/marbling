@@ -22,7 +22,10 @@ enum CpuHook : int
 	kCpuEventsAtFrame = 1 << 0,///< beats and onsets placed at the frame, not inside it
 	kCpuFloatClock    = 1 << 1,///< the host clock read through a float
 	kCpuResizeClears  = 1 << 2,///< a resize loses the baked map instead of resampling it
-	kCpuIgnorePaper   = 1 << 3 ///< Paper does nothing
+	kCpuIgnorePaper   = 1 << 3,///< Paper does nothing
+	kCpuIgnoreGate    = 1 << 4,///< the device menu listed and Audio Input applied whatever Trigger On says
+	kCpuNoBake        = 1 << 5,///< nothing is ever baked: ops pile up past what the shader traces
+	kCpuLeakState     = 1 << 6 ///< the display pass leaves its program and textures bound
 };
 
 struct TriggerRecord

@@ -30,6 +30,7 @@ const int kHookPushExponent  = 2;
 const int kHookFoldSpacing   = 4;
 const int kHookNearestMap    = 8;
 const int kHookNoPremultiply = 16;
+const int kHookBlendInk      = 32;
 
 uniform int Hooks;
 uniform ivec4 Viewport;//the target: x, y, width, height
@@ -139,6 +140,8 @@ vec4 mapAt( vec2 P )
 	vec4 d  = mapTexel( i + ivec2( 1, 1 ) );
 	if( min( min( a.w, b.w ), min( c.w, d.w ) ) > 0.0 && !hook( kHookNearestMap ) )
 		return vec4( mix( mix( a.xy, b.xy, f.x ), mix( c.xy, d.xy, f.x ), f.y ), 0.0, 1.0 );
+	if( hook( kHookBlendInk ) && min( min( a.w, b.w ), min( c.w, d.w ) ) < 0.0 && max( max( a.w, b.w ), max( c.w, d.w ) ) < 0.0 )
+		return mix( mix( a, b, f.x ), mix( c, d, f.x ), f.y );
 	return mapTexel( ivec2( floor( t + 0.5 ) ) );
 }
 
@@ -187,7 +190,7 @@ bool traceBack( inout vec2 P, int first, int last, out vec4 ink )
 			}
 			float g = b.y * b.z / ( d + b.z );
 			if( hook( kHookCompressible ) )
-				g *= 1.0 + 0.05 * dot( P, M ) / Size.y;
+				g *= 1.0 + 0.2 * dot( P, M ) / Size.y;
 			P -= g * M;
 			if( c.x != 0.0 )
 				P += c.x * sinSeries( c.y * dot( P, M ) + c.z ) * N;
@@ -202,7 +205,7 @@ bool traceBack( inout vec2 P, int first, int last, out vec4 ink )
 			{
 				float th = b.x * b.y / ( abs( rho - a.w ) + b.y ) / rho;
 				if( hook( kHookCompressible ) )
-					th *= 1.0 + 0.05 * d.x / Size.y;
+					th *= 1.0 + 0.2 * d.x / Size.y;
 				float sn = sinSeries( th );
 				float cs = cosSeries( th );
 				P        = a.yz + vec2( cs * d.x - sn * d.y, sn * d.x + cs * d.y );

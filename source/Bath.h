@@ -133,8 +133,12 @@ public:
 	/// The harness: an op as given, a drop given the next palette slot (so
 	/// it can never share one with a drop still waiting).
 	void AddForTest( Op op );
-	/// How many of the oldest ops to bake now (0: none).
-	int BakeCount() const;
+	/// How many of the oldest ops to bake now (0: none): when more than
+	/// kBakeAbove wait, the finished ones among the oldest, keeping the newest
+	/// kBakeKeep; and never fewer than leaves kBakeAbove waiting, so the next
+	/// frame's kMaxNewPerFrame always fit in kMaxOps (only then is an op still
+	/// moving baked at full strength: more than 48 moving at once).
+	int BakeCount( double now ) const;
 	/// Those ops are in the map now: drop them from the list.
 	void Baked( int count );
 

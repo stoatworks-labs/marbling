@@ -333,6 +333,13 @@ void MarblingPlugin::gatherEvents( int64_t frameStartUs, int64_t frameUs, double
 
 	if( source == TriggerOn::Onsets )
 		handleOnsets( frameStartUs, frameUs );
+	else if( cpuHooks & kCpuIgnoreGate )
+	{
+		//The negative control: what a plugin that lists and opens regardless does.
+		audio.EnsureListed();
+		audio.Want( params[ PT_INPUT ] );
+		audio.Apply();
+	}
 	else
 		audio.Release();
 
@@ -539,6 +546,8 @@ void MarblingPlugin::display( const FFGLTextureStruct* input, const GLint* hostV
 	uploadOps( displayShader, kMaxOps, 0, height );
 	uniform( displayShader, "MixAmount", std::clamp( params[ PT_MIX ], 0.0f, 1.0f ) );
 	quad.Draw();
+	if( cpuHooks & kCpuLeakState )
+		return;//the negative control: the program and three textures left bound
 	unbindTextureUnits( 3 );
 	glActiveTexture( GL_TEXTURE0 );
 	glUseProgram( 0 );
@@ -555,6 +564,7 @@ FFResult MarblingPlugin::ProcessOpenGL( ProcessOpenGLStruct* pgl )
 	ScopedGLState restore;
 	const GLint* hostViewport = restore.saved.viewport;
 	glDisable( GL_BLEND );
+	glColorMask( GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE );
 	const int width  = hostViewport[ 2 ];
 	const int height = hostViewport[ 3 ];
 	if( width <= 0 || height <= 0 || input->Width == 0 || input->Height == 0 )
@@ -592,7 +602,7 @@ FFResult MarblingPlugin::ProcessOpenGL( ProcessOpenGLStruct* pgl )
 		diag::error( "could not resample the map" );
 		return FF_FAIL;
 	}
-	int toBake = bath.BakeCount();
+	int toBake = ( cpuHooks & kCpuNoBake ) ? 0 : bath.BakeCount( static_cast< double >( clockUs ) * 1e-6 );
 	if( bakeEveryTrigger )
 	{
 		//Everything finished is baked: ops are only ever left waiting while
