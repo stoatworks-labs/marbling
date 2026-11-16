@@ -75,7 +75,7 @@ def presses(path, count, every=10, first=5):
 def alpha(matest, scratch):
     w, h, n = 320, 180, 160
     script = scratch / "presses.cue"
-    presses(script, 12)
+    presses(script, 12, every=4)  # all twelve inside the shorter clip's 60 frames
     ok = True
     for name in ALPHA_CLIPS:
         raw, got = decode(MEDIA / name, w, h, n)
