@@ -38,7 +38,7 @@ bool isOffline( const char* name )
 
 /// Every check's wrong models. Each must make its check FAIL; a check with
 /// none is refused (earshot's rule: a check that cannot fail is not one).
-int runNegative( bool offlineOnly = false )
+int runNegative( bool offlineOnly = false, const std::string& only = "" )
 {
 	struct Case
 	{
@@ -88,6 +88,8 @@ int runNegative( bool offlineOnly = false )
 			++missing;
 		}
 	}
+	if( !only.empty() )
+		cases.erase( std::remove_if( cases.begin(), cases.end(), [ & ]( const Case& c ) { return only != c.name; } ), cases.end() );
 	if( offlineOnly )
 		cases.erase( std::remove_if( cases.begin(), cases.end(), []( const Case& c ) { return !isOffline( c.name ); } ), cases.end() );
 

@@ -258,6 +258,9 @@ int runRobust( const Perturb& perturb )
 				return 1;
 			for( unsigned int id : { PT_DROP_SIZE, PT_DROP_RATE, PT_SPACING, PT_DEPTH, PT_SPEED } )
 				rig.Set( id, end );
+			//The recipe again on top of the last, never a fresh sheet: the
+			//ops pile up and the bakes have to keep up.
+			rig.Set( PT_AUTO_PAPER, 0.0f );
 			int presses = 0, worstOps = 0, nonFinite = 0, outOfRange = 0;
 			for( int p = 0; p < static_cast< int >( Pattern::Count ); ++p )
 			{

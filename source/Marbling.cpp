@@ -445,7 +445,7 @@ void MarblingPlugin::uploadOps( const FFGLShader& shader, int count, int forceCo
 }
 
 /// One texel per new drop: its ink, the clip's mean where it lands.
-bool MarblingPlugin::writePalette( int width, int height )
+bool MarblingPlugin::writePalette( const FFGLTextureStruct* input, int width, int height )
 {
 	auto& ops = bath.MutableOps();
 	bool any  = false;
@@ -455,6 +455,9 @@ bool MarblingPlugin::writePalette( int width, int height )
 		return true;
 	ScopedFBOBinding target( palette.GetGLID(), ScopedFBOBinding::RB_REVERT );
 	glUseProgram( paletteShader.GetGLID() );
+	//The clip on unit 0; nothing on the others (the palette is the target,
+	//and is never sampled here).
+	bindUnit( 0, input->Handle );
 	const double H = static_cast< double >( height );
 	for( Op& o : ops )
 	{
@@ -462,11 +465,14 @@ bool MarblingPlugin::writePalette( int width, int height )
 			continue;
 		glViewport( o.slot, 0, 1, 1 );
 		commonUniforms( paletteShader, o.slot, 0, 1, 1, width, height );
+		glUniform2i( where( paletteShader, "InputSize" ), static_cast< int >( input->Width ), static_cast< int >( input->Height ) );
 		glUniform3f( where( paletteShader, "Drop" ), static_cast< float >( o.cx * H ), static_cast< float >( o.cy * H ), static_cast< float >( o.r * H ) );
 		uniform( paletteShader, "DropClear", o.clear ? 1 : 0 );
 		quad.Draw();
 		o.colourPending = false;
 	}
+	unbindTextureUnits( 3 );
+	glActiveTexture( GL_TEXTURE0 );
 	glUseProgram( 0 );
 	return true;
 }
@@ -596,7 +602,7 @@ FFResult MarblingPlugin::ProcessOpenGL( ProcessOpenGLStruct* pgl )
 		diag::error( "could not allocate the palette" );
 		return FF_FAIL;
 	}
-	writePalette( width, height );
+	writePalette( input, width, height );
 	if( !bath.MapIsIdentity() && ( mapW != width || mapH != height ) && !resizeMap( width, height ) )
 	{
 		diag::error( "could not resample the map" );

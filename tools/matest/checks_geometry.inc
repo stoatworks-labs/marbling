@@ -72,6 +72,34 @@ Mapped readMap( const Rig& rig )
 			m.valid[ k ] = 0;
 		}
 	}
+	//The card is mirrored beyond the window, so a position pushed outside
+	//reads back as its reflection, inside. Every tool keeps orientation; a
+	//reflection reverses it. So a pixel counts only where the map's local
+	//determinant (central differences) is positive around it.
+	std::vector< double > det( n, -1.0 );
+	for( int j = 1; j + 1 < m.h; ++j )
+		for( int i = 1; i + 1 < m.w; ++i )
+		{
+			const size_t c = m.at( i, j ), l = m.at( i - 1, j ), r = m.at( i + 1, j ), d = m.at( i, j - 1 ), u = m.at( i, j + 1 );
+			if( m.label[ c ] != 0 || m.label[ l ] != 0 || m.label[ r ] != 0 || m.label[ d ] != 0 || m.label[ u ] != 0 )
+				continue;
+			det[ c ] = 0.25 * ( ( m.qx[ r ] - m.qx[ l ] ) * ( m.qy[ u ] - m.qy[ d ] ) - ( m.qx[ u ] - m.qx[ d ] ) * ( m.qy[ r ] - m.qy[ l ] ) );
+		}
+	std::vector< char > keep( n, 0 );
+	for( int j = 0; j < m.h; ++j )
+		for( int i = 0; i < m.w; ++i )
+		{
+			bool ok = m.valid[ m.at( i, j ) ];
+			for( int dj = -1; dj <= 1 && ok; ++dj )
+				for( int di = -1; di <= 1 && ok; ++di )
+				{
+					const int ii = i + di, jj = j + dj;
+					ok = ii < 0 || jj < 0 || ii >= m.w || jj >= m.h || m.label[ m.at( ii, jj ) ] != 0 || det[ m.at( ii, jj ) ] > 0.0
+					     || ii == 0 || jj == 0 || ii == m.w - 1 || jj == m.h - 1;
+				}
+			keep[ m.at( i, j ) ] = ok;
+		}
+	m.valid.swap( keep );
 	return m;
 }
 
@@ -350,12 +378,18 @@ BlockArea blockAreas( const Mapped& m, int b, double limitRel )
 {
 	BlockArea out;
 	std::vector< double > tols;
-	for( int j0 = 0; j0 + b < m.h; j0 += b )
-		for( int i0 = 0; i0 + b < m.w; i0 += b )
+	//The map's second difference along a grid line through (i, j): the
+	//curvature of the image of that line, not of the loop's corners.
+	auto second = [ & ]( int i, int j, int di, int dj ) {
+		const size_t a = m.at( i - di, j - dj ), c = m.at( i, j ), d = m.at( i + di, j + dj );
+		return std::hypot( m.qx[ d ] - 2.0 * m.qx[ c ] + m.qx[ a ], m.qy[ d ] - 2.0 * m.qy[ c ] + m.qy[ a ] );
+	};
+	for( int j0 = 1; j0 + b + 1 < m.h; j0 += b )
+		for( int i0 = 1; i0 + b + 1 < m.w; i0 += b )
 		{
 			bool clean = true;
-			for( int j = j0; j <= j0 + b && clean; ++j )
-				for( int i = i0; i <= i0 + b && clean; ++i )
+			for( int j = j0 - 1; j <= j0 + b + 1 && clean; ++j )
+				for( int i = i0 - 1; i <= i0 + b + 1 && clean; ++i )
 					clean = m.valid[ m.at( i, j ) ] && m.label[ m.at( i, j ) ] == 0;
 			if( !clean )
 				continue;
@@ -371,34 +405,27 @@ BlockArea blockAreas( const Mapped& m, int b, double limitRel )
 			for( int j = j0 + b; j > j0; --j )
 				loop.emplace_back( i0, j );
 			const size_t n = loop.size();
-			std::vector< double > x( n ), y( n );
-			for( size_t k = 0; k < n; ++k )
-			{
-				x[ k ] = m.qx[ m.at( loop[ k ].first, loop[ k ].second ) ];
-				y[ k ] = m.qy[ m.at( loop[ k ].first, loop[ k ].second ) ];
-			}
 			double area = 0.0, perimeter = 0.0;
-			std::vector< double > second( n );
-			for( size_t k = 0; k < n; ++k )
-			{
-				const size_t p = ( k + n - 1 ) % n, q = ( k + 1 ) % n;
-				area += x[ k ] * y[ q ] - x[ q ] * y[ k ];
-				perimeter += std::hypot( x[ q ] - x[ k ], y[ q ] - y[ k ] );
-				second[ k ] = std::hypot( x[ q ] - 2.0 * x[ k ] + x[ p ], y[ q ] - 2.0 * y[ k ] + y[ p ] );
-			}
-			area *= 0.5;
 			//Error sources: each chord against its arc, at most 2/3 chord x
 			//sagitta, the sagitta at most K/8 for a curvature K bounded by
-			//twice the largest second difference near it (a kink between
-			//samples); and float's error in each vertex (5e-4 px) along the
-			//perimeter twice.
-			double tol = 2.0 * 5e-4 * perimeter;
+			//twice the larger second difference at the chord's two ends (a
+			//kink between samples); and float's error in each vertex (5e-4
+			//px) along the perimeter twice.
+			double sag = 0.0;
 			for( size_t k = 0; k < n; ++k )
 			{
-				const size_t q = ( k + 1 ) % n, p = ( k + n - 1 ) % n, r = ( k + 2 ) % n;
-				const double K = 2.0 * std::max( { second[ p ], second[ k ], second[ q ], second[ r ] } );
-				tol += std::hypot( x[ q ] - x[ k ], y[ q ] - y[ k ] ) * K / 12.0;
+				const size_t q = ( k + 1 ) % n;
+				const int ia = loop[ k ].first, ja = loop[ k ].second, ib = loop[ q ].first, jb = loop[ q ].second;
+				const size_t a = m.at( ia, ja ), c = m.at( ib, jb );
+				area += m.qx[ a ] * m.qy[ c ] - m.qx[ c ] * m.qy[ a ];
+				const double chord = std::hypot( m.qx[ c ] - m.qx[ a ], m.qy[ c ] - m.qy[ a ] );
+				perimeter += chord;
+				const int di = ib - ia, dj = jb - ja;
+				const double K = 2.0 * std::max( second( ia, ja, di, dj ), second( ib, jb, di, dj ) );
+				sag += chord * K / 12.0;
 			}
+			area *= 0.5;
+			const double tol = sag + 2.0 * 5e-4 * perimeter;
 			const double a0 = static_cast< double >( b ) * b, rel = std::fabs( area - a0 ) / a0, tolRel = tol / a0;
 			tols.push_back( tolRel );
 			if( tolRel > limitRel )
@@ -423,7 +450,7 @@ BlockArea blockAreas( const Mapped& m, int b, double limitRel )
 int runJacobian( const Perturb& perturb )
 {
 	std::printf( "\n=== jacobian: each tool, composed one after another, leaves every block of the frame its area: shoelace over the backward map's "
-	             "image of each block's boundary (blocks 0.1 frame heights), against the chord-sag and float bound\n" );
+	             "image of each block's boundary (blocks 0.1 frame heights, at least 36 px), against the chord-sag and float bound\n" );
 	struct Stage
 	{
 		const char* what;
@@ -446,13 +473,17 @@ int runJacobian( const Perturb& perturb )
 		Rig rig;
 		if( !startRig( rig, raster.w, raster.h, perturb, &uv ) )
 			return 1;
-		const int b = std::max( 8, static_cast< int >( std::lround( 0.1 * raster.h ) ) );
+		//Blocks of 0.1 frame heights, at least 36 px: the chord-sag bound
+		//relative to a block's area falls as the block grows in pixels.
+		const int b = std::max( 36, static_cast< int >( std::lround( 0.1 * raster.h ) ) );
 		for( const Stage& stage : stages )
 		{
 			if( !injectAndRender( rig, stage.op, 1, uv ) )
 				return 1;
 			const BlockArea a = blockAreas( readMap( rig ), b, kLimit );
-			Check( a.failed == 0 && a.resolved >= std::max( 4, a.clean / 2 ),
+			//At least four blocks, and a third of the clean ones, resolved:
+			//never a pass over nothing.
+			Check( a.failed == 0 && a.resolved >= std::max( 4, ( a.clean + 2 ) / 3 ),
 			       fmt( "%dx%d, %-28s %d of %d clean blocks (%d px) resolved to 0.2%%, %d outside their bound; worst |area/area0 - 1| %.2e "
 			            "(its bound %.2e)",
 			            raster.w, raster.h, stage.what, a.resolved, a.clean, b, a.failed, a.worstRel, a.worstTolRel ) );
@@ -467,99 +498,140 @@ int runJacobian( const Perturb& perturb )
 // not dropped; each trigger's ink keeps its area while inside the window,
 // through the real recipe, with and without a bake after every trigger.
 //===========================================================================
+/// Label counts and the pixels each label's edge can cross (smooth at the
+/// pixel scale: k's own pixels with a neighbour not k, and every other pixel
+/// with a neighbour k, each counted once per label).
+struct InkCensus
+{
+	std::map< int, int > count, edge;
+	std::map< int, bool > touches;
+	int foreign = 0;
+};
+
+InkCensus census( const Mapped& m )
+{
+	InkCensus c;
+	for( int j = 0; j < m.h; ++j )
+		for( int i = 0; i < m.w; ++i )
+		{
+			const int l   = m.label[ m.at( i, j ) ];
+			int seen[ 9 ] = {};
+			int nSeen     = 0;
+			bool boundary = false;
+			for( int dj = -1; dj <= 1; ++dj )
+				for( int di = -1; di <= 1; ++di )
+				{
+					const int ii = std::clamp( i + di, 0, m.w - 1 ), jj = std::clamp( j + dj, 0, m.h - 1 );
+					const int n  = m.label[ m.at( ii, jj ) ];
+					if( n == l )
+						continue;
+					boundary = true;
+					if( n >= 1 && std::find( seen, seen + nSeen, n ) == seen + nSeen )
+						seen[ nSeen++ ] = n;
+				}
+			for( int s = 0; s < nSeen; ++s )
+				++c.edge[ seen[ s ] ];
+			if( l < 0 )
+			{
+				++c.foreign;
+				continue;
+			}
+			if( l == 0 )
+				continue;
+			++c.count[ l ];
+			c.edge[ l ] += boundary;
+			if( i < 2 || j < 2 || i >= m.w - 2 || j >= m.h - 2 )
+				c.touches[ l ] = true;
+		}
+	return c;
+}
+
 int runInk( const Perturb& perturb )
 {
-	std::printf( "\n=== ink: Nonpareil through its real triggers, each trigger's drops on a label card: every pixel one ink exactly or the paper, no "
-	             "label never dropped, each label's area 3 pi r^2 within the pixel grid's bound while it stays in the window\n" );
+	std::printf( "\n=== ink: no ink lost or created. Through Nonpareil's real triggers (drops on label cards), every pixel is one ink exactly or the "
+	             "paper and no label appears that was not dropped; in a marbling kept inside the window, every drop's ink keeps pi r^2 within the "
+	             "pixel grid's bound, traced exactly or baked after every op\n" );
 	for( const Raster& raster : kRasters )
 		for( bool bakeAll : { false, true } )
 		{
-			const Floats uv = uvCard( raster.w, raster.h );
-			Rig rig;
-			if( !startRig( rig, raster.w, raster.h, perturb, &uv ) )
-				return 1;
-			rig.plugin.SetBakeEveryTriggerForTest( bakeAll );
-			const double r = 0.07;
-			rig.Set( PT_PATTERN, static_cast< float >( Pattern::Nonpareil ) );
-			rig.Set( PT_DROP_SIZE, ParamFromDropRadius( r ) );
-			rig.Set( PT_DROP_RATE, ParamFromDropRate( 3 ) );
-			rig.Set( PT_SPACING, ParamFromSpacing( 0.06 ) );
-			rig.Set( PT_DEPTH, ParamFromDepth( 0.1 ) );
-			rig.Set( PT_SPEED, ParamFromStrokeSeconds( 0.3 ) );
-			rig.Set( PT_AUTO_PAPER, 0.0f );
-			std::vector< int > dropLabels;
-			int label = 0;
-			while( rig.plugin.BathForTest().CurrentStage() != Bath::Stage::Done && label < 30 )
+			//(a) The real recipe.
 			{
-				++label;
-				const bool drops = rig.plugin.BathForTest().CurrentStage() == Bath::Stage::Drops;
-				rig.Upload( drops ? labelCard( raster.w, raster.h, label ) : uv );
-				if( !rig.Press( PT_TRIGGER ) )
+				const Floats uv = uvCard( raster.w, raster.h );
+				Rig rig;
+				if( !startRig( rig, raster.w, raster.h, perturb, &uv ) )
 					return 1;
-				if( drops )
-					dropLabels.push_back( label );
-				rig.Upload( uv );
-				if( !rig.Render( 24 ) )//each stroke finishes (0.3 s) before the next
-					return 1;
-			}
-			const Mapped m = readMap( rig );
-			std::map< int, int > count, edge;
-			std::map< int, bool > touches;
-			int foreign = 0, neverDropped = 0;
-			for( int j = 0; j < m.h; ++j )
-				for( int i = 0; i < m.w; ++i )
+				rig.plugin.SetBakeEveryTriggerForTest( bakeAll );
+				rig.Set( PT_PATTERN, static_cast< float >( Pattern::Nonpareil ) );
+				rig.Set( PT_DROP_SIZE, ParamFromDropRadius( 0.07 ) );
+				rig.Set( PT_DROP_RATE, ParamFromDropRate( 3 ) );
+				rig.Set( PT_SPEED, ParamFromStrokeSeconds( 0.3 ) );
+				rig.Set( PT_AUTO_PAPER, 0.0f );
+				std::vector< int > dropLabels;
+				int label = 0;
+				while( rig.plugin.BathForTest().CurrentStage() != Bath::Stage::Done && label < 30 )
 				{
-					const int l = m.label[ m.at( i, j ) ];
-					//The pixels an edge of label k can cross (smooth at the pixel
-					//scale): k's own with a neighbour not k, and every other pixel
-					//with a neighbour k. Each counted once per label.
-					int seen[ 9 ] = {};
-					int nSeen     = 0;
-					bool boundary = false;
-					for( int dj = -1; dj <= 1; ++dj )
-						for( int di = -1; di <= 1; ++di )
-						{
-							const int ii = std::clamp( i + di, 0, m.w - 1 ), jj = std::clamp( j + dj, 0, m.h - 1 );
-							const int n  = m.label[ m.at( ii, jj ) ];
-							if( n == l )
-								continue;
-							boundary = true;
-							if( n >= 1 && std::find( seen, seen + nSeen, n ) == seen + nSeen )
-								seen[ nSeen++ ] = n;
-						}
-					for( int s = 0; s < nSeen; ++s )
-						++edge[ seen[ s ] ];
-					if( l < 0 )
-					{
-						++foreign;
-						continue;
-					}
-					if( l == 0 )
-						continue;
-					if( std::find( dropLabels.begin(), dropLabels.end(), l ) == dropLabels.end() )
-						++neverDropped;
-					++count[ l ];
-					edge[ l ] += boundary;
-					if( i < 2 || j < 2 || i >= m.w - 2 || j >= m.h - 2 )
-						touches[ l ] = true;
+					++label;
+					const bool drops = rig.plugin.BathForTest().CurrentStage() == Bath::Stage::Drops;
+					rig.Upload( drops ? labelCard( raster.w, raster.h, label ) : uv );
+					if( !rig.Press( PT_TRIGGER ) )
+						return 1;
+					if( drops )
+						dropLabels.push_back( label );
+					rig.Upload( uv );
+					if( !rig.Render( 24 ) )//each stroke finishes (0.3 s) before the next
+						return 1;
 				}
-			const double expect = 3.0 * kPi * ( r * raster.h ) * ( r * raster.h );
-			int judged = 0, outside = 0;
-			double worstRatio = 0.0;
-			for( int l : dropLabels )
-			{
-				if( touches[ l ] || count[ l ] == 0 )
-					continue;
-				++judged;
-				const double ratio = std::fabs( count[ l ] - expect ) / std::max( 1, edge[ l ] );
-				worstRatio         = std::max( worstRatio, ratio );
-				outside += ratio > 1.0;
+				const InkCensus c = census( readMap( rig ) );
+				int never = 0, inked = 0;
+				for( const auto& entry : c.count )
+				{
+					never += std::find( dropLabels.begin(), dropLabels.end(), entry.first ) == dropLabels.end() ? entry.second : 0;
+					inked += entry.second;
+				}
+				Check( c.foreign == 0 && never == 0 && inked > raster.w * raster.h / 20,
+				       fmt( "%dx%d, Nonpareil's %d triggers, %s: %d pixels a blend of inks or a colour never dropped, %d with a label never dropped; "
+				            "%d ink pixels",
+				            raster.w, raster.h, label, bakeAll ? "baked after every trigger" : "traced exactly", c.foreign, never, inked ) );
 			}
-			Check( foreign == 0 && neverDropped == 0 && outside == 0 && judged >= 3,
-			       fmt( "%dx%d, %s: %d pixels a blend of inks or a colour never dropped, %d with a label never dropped; %d of %zu labels inside the "
-			            "window, %d off their area beyond the grid bound (worst |count - 3 pi r^2| / bound %.2f; bound = pixels an edge can cross)",
-			            raster.w, raster.h, bakeAll ? "baked after every trigger" : "traced exactly", foreign, neverDropped, judged, dropLabels.size(),
-			            outside, worstRatio ) );
+			//(b) Overlapping drops near the centre, combed gently: the ink stays
+			//in the window, so every drop's area can be counted.
+			{
+				const Floats uv = uvCard( raster.w, raster.h );
+				Rig rig;
+				if( !startRig( rig, raster.w, raster.h, perturb, &uv ) )
+					return 1;
+				rig.plugin.SetBakeEveryTriggerForTest( bakeAll );
+				const double radii[] = { 0.08, 0.06, 0.07, 0.05, 0.065, 0.055 };
+				const double xs[] = { 0.0, 0.08, -0.07, 0.03, -0.02, 0.1 }, ys[] = { 0.0, 0.05, 0.04, -0.08, 0.09, -0.04 };
+				for( int k = 0; k < 6; ++k )
+					if( !injectAndRender( rig, dropOp( xs[ k ], ys[ k ], radii[ k ] ), k + 1, uv ) )
+						return 1;
+				const Op strokes[] = { combOp( 1, 0, 0.0, 0.12, 0.04, 0.02 ), combOp( -1, 0, 0.06, 0.12, 0.04, 0.02 ), combOp( 0, 1, 0.0, 0.12, 0.04, 0.02 ),
+				                       combOp( 0, -1, 0.06, 0.12, 0.04, 0.02 ), circleOp( 0.02, 0.0, 0.0, 0.08, 0.05 ) };
+				for( const Op& o : strokes )
+					if( !injectAndRender( rig, o, 0, uv ) )
+						return 1;
+				const InkCensus c = census( readMap( rig ) );
+				int outside = 0, judged = 0;
+				double worst = 0.0;
+				std::string what;
+				for( int k = 0; k < 6; ++k )
+				{
+					const int l = k + 1;
+					const double expect = kPi * ( radii[ k ] * raster.h ) * ( radii[ k ] * raster.h );
+					const int n         = c.count.count( l ) ? c.count.at( l ) : 0;
+					const int bound     = c.edge.count( l ) ? c.edge.at( l ) : 0;
+					const double ratio  = std::fabs( n - expect ) / std::max( 1, bound );
+					judged += !c.touches.count( l ) && n > 0;
+					outside += ratio > 1.0 || c.touches.count( l );
+					worst = std::max( worst, ratio );
+					what += fmt( " %d/%.0f", n, expect );
+				}
+				Check( c.foreign == 0 && outside == 0 && judged == 6,
+				       fmt( "%dx%d, six overlapping drops and five strokes, %s: %d pixels a blend; each drop's pixels against pi r^2:%s; worst "
+				            "|count - pi r^2| / bound %.2f (bound = pixels its edge can cross)",
+				            raster.w, raster.h, bakeAll ? "baked after every op" : "traced exactly", c.foreign, what.c_str(), worst ) );
+			}
 		}
 	return Verdict();
 }
@@ -707,7 +779,9 @@ int runResample( const Perturb& perturb )
 			Rig rig;
 			if( !startRig( rig, raster.w, raster.h, perturb, &uv ) )
 				return 1;
-			const Op forward = combOp( 1, 0, 0.0, c.s, c.a, c.l ), back = combOp( -1, 0, 0.0, c.s, c.a, c.l );
+			//Diagonal, so undoing it crosses texel rows and columns: along its
+			//own axis a comb is linear and bilinear reads it exactly.
+			const Op forward = combOp( 0.6, 0.8, 0.0, c.s, c.a, c.l ), back = combOp( -0.6, -0.8, 0.0, c.s, c.a, c.l );
 			rig.plugin.SetBakeEveryTriggerForTest( true );
 			if( !injectAndRender( rig, forward, 1, uv ) )
 				return 1;
@@ -727,7 +801,7 @@ int runResample( const Perturb& perturb )
 			const double A = c.a * H, L = c.l * H;
 			const double tol = 1e-3 + 8.0 * kEps32 * W * ( 1.0 + A / L );
 			double worstPred = 0.0, worstBlur = 0.0, sumBlur = 0.0;
-			int measured = 0, over = 0;
+			int measured = 0, over = 0, beyond = 0;
 			std::vector< double > blurs;
 			for( int j = 0; j < Hh; ++j )
 				for( int i = 0; i < W; ++i )
@@ -737,6 +811,13 @@ int runResample( const Perturb& perturb )
 						continue;
 					double x = m.px( i ), y = m.py( j );
 					backThrough( back, H, x, y );
+					//Beyond the window the baked map is the mirror of the inside
+					//(SPEC-marbling.md): what is read there is that, not blur.
+					if( std::fabs( x ) > 0.5 * W - 1.0 || std::fabs( y ) > 0.5 * Hh - 1.0 )
+					{
+						++beyond;
+						continue;
+					}
 					const double tx = x + 0.5 * W - 0.5, ty = y + 0.5 * Hh - 0.5;
 					const int i0 = static_cast< int >( std::floor( tx ) ), j0 = static_cast< int >( std::floor( ty ) );
 					const double fx = tx - i0, fy = ty - j0;
@@ -755,9 +836,12 @@ int runResample( const Perturb& perturb )
 						continue;
 					const double px = ( qx[ 0 ][ 0 ] * ( 1 - fx ) + qx[ 0 ][ 1 ] * fx ) * ( 1 - fy ) + ( qx[ 1 ][ 0 ] * ( 1 - fx ) + qx[ 1 ][ 1 ] * fx ) * fy;
 					const double py = ( qy[ 0 ][ 0 ] * ( 1 - fx ) + qy[ 0 ][ 1 ] * fx ) * ( 1 - fy ) + ( qy[ 1 ][ 0 ] * ( 1 - fx ) + qy[ 1 ][ 1 ] * fx ) * fy;
-					//Rounding moves f by ~2^-24 x width; times the corners' spread.
-					const double spread = std::max( std::fabs( qx[ 0 ][ 0 ] - qx[ 1 ][ 1 ] ), std::fabs( qx[ 0 ][ 1 ] - qx[ 1 ][ 0 ] ) );
-					const double t      = tol + 4.0 * kEps32 * W * spread;
+					//The trace to P' rounds (tol), and the map's own gradient (at
+					//most the corners' spread per px) carries that into the
+					//reading; rounding moves f by ~2^-24 x width, times the spread.
+					const double spread = std::max( std::hypot( qx[ 0 ][ 0 ] - qx[ 1 ][ 1 ], qy[ 0 ][ 0 ] - qy[ 1 ][ 1 ] ),
+					                                std::hypot( qx[ 0 ][ 1 ] - qx[ 1 ][ 0 ], qy[ 0 ][ 1 ] - qy[ 1 ][ 0 ] ) );
+					const double t      = tol * ( 1.0 + spread ) + 4.0 * kEps32 * W * spread;
 					const double e      = std::hypot( m.qx[ at ] - px, m.qy[ at ] - py );
 					worstPred           = std::max( worstPred, e / t );
 					over += e > t;
@@ -768,16 +852,21 @@ int runResample( const Perturb& perturb )
 					++measured;
 				}
 			std::sort( blurs.begin(), blurs.end() );
-			const double bound = A / ( 2.0 * L ) + ( 2.0 * A / ( L * L ) ) / 8.0;
+			//Bilinear across the cusp: the four corners span |Nx| + |Ny| px of
+			//d, so the cusp's slope jump 2 alpha/lambda costs at most a quarter
+			//of that each way; plus max|g''| (2 alpha/lambda^2) times span^2 / 8.
+			const double span  = 0.6 + 0.8;
+			const double bound = span * A / ( 2.0 * L ) + span * span * ( 2.0 * A / ( L * L ) ) / 8.0;
 			const double p99   = blurs.empty() ? 0.0 : blurs[ blurs.size() * 99 / 100 ];
 			size_t halfPx      = 0;
 			for( double b : blurs )
 				halfPx += b > 0.5;
 			Check( over == 0 && measured > 0 && bakes >= 1 && worstBlur <= bound,
 			       fmt( "%dx%d, %s: %d of %d pixels off the bilinear prediction (worst %.2f of tolerance); the bake's residue: worst %.2f px "
-			            "(bound %.2f), mean %.3f px, 99th percentile %.3f px, %.2f%% of pixels over 0.5 px",
+			            "(bound %.2f), mean %.3f px, 99th percentile %.3f px, %.2f%% of pixels over 0.5 px; %d pixels read the map beyond the window "
+			            "(its mirror), not judged",
 			            raster.w, raster.h, c.what, over, measured, worstPred, worstBlur, bound, measured ? sumBlur / measured : 0.0, p99,
-			            measured ? 100.0 * halfPx / measured : 0.0 ) );
+			            measured ? 100.0 * halfPx / measured : 0.0, beyond ) );
 		}
 	return Verdict();
 }

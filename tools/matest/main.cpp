@@ -981,6 +981,8 @@ int main( int argc, char** argv )
 		result = runPipe( width, height, fps, scriptPath, filmFrames, false, settings, source, beatBpm );
 	else if( mode == "negative" )
 		result = runNegative();
+	else if( mode.rfind( "negative-of=", 0 ) == 0 )
+		result = runNegative( false, mode.substr( 12 ) );
 	else if( mode == "bench" )
 		result = runBench();
 	else if( mode == "all" )

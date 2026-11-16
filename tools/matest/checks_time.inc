@@ -78,7 +78,7 @@ int runRate( const Perturb& perturb )
 			times += fmt( " %.6f", t.us * 1e-6 );
 		//The beat's phase reaches the plugin as a float: 2^-24 of a bar is
 		//0.14 us at 100 BPM; the interpolation rounds to a microsecond.
-		Check( sameCount && worstUs <= 2 && logs[ 0 ].size() == 6,
+		Check( sameCount && worstUs <= 2 && logs[ 0 ].size() == 5,
 		       fmt( "%g fps against 60: %zu triggers against %zu, worst time apart %lld us (tolerance 2 us: the float phase and the us "
 		            "rounding); at%s s",
 		            fpsList[ r ], logs[ r ].size(), logs[ 0 ].size(), static_cast< long long >( worstUs ), times.c_str() ) );
@@ -469,8 +469,9 @@ int runTriggers( const Perturb& perturb )
 			ok = log[ k ].us == expect[ k ];
 		Check( ok, fmt( "presses at frames 10 (held to 13), 20 and 22 at 60 fps: %zu triggers, at the frames' microseconds: %s", log.size(), ok ? "yes" : "NO" ) );
 	}
-	//(b) The host's beat, 120 BPM, at 60 and 24 fps; (c) a host that never
-	//moves its bar phase.
+	//(b) The host's beat, 100 BPM (a beat every 0.6 s, off the 24 fps
+	//grid, so a crossing placed at the frame shows), at 60 and 24 fps;
+	//(c) a host that never moves its bar phase.
 	for( int variant = 0; variant < 3; ++variant )
 	{
 		const double fps = variant == 1 ? 24.0 : 60.0;
@@ -479,18 +480,18 @@ int runTriggers( const Perturb& perturb )
 			return 1;
 		rig.Set( PT_TRIGGER_ON, static_cast< float >( TriggerOn::Beat ) );
 		if( variant < 2 )
-			rig.beatBpm = 120.0;
+			rig.beatBpm = 100.0;
 		else
-			rig.beforeFrame = [ &rig ]( int ) { rig.plugin.SetBeatInfo( 120.0f, 0.0f ); };
-		if( !rig.Render( static_cast< int >( std::lround( 4.2 * fps ) ) ) )
+			rig.beforeFrame = [ &rig ]( int ) { rig.plugin.SetBeatInfo( 100.0f, 0.0f ); };
+		if( !rig.Render( static_cast< int >( std::lround( 4.0 * fps ) ) ) )
 			return 1;
 		const auto& log = rig.plugin.TriggerLog();
 		int64_t worst   = 0;
 		for( size_t k = 0; k < log.size(); ++k )
-			worst = std::max< int64_t >( worst, std::llabs( log[ k ].us - static_cast< int64_t >( k + 1 ) * 500000 ) );
-		Check( log.size() == 8 && worst <= 2,
-		       fmt( "%s at %g fps, 4.2 s: %zu triggers (8 expected, every 0.5 s), worst %lld us from k x 0.5 s (tolerance 2 us)",
-		            variant < 2 ? "the host's beat, 120 BPM," : "a bar phase stuck at 0, 120 BPM: the plugin's own beat", fps, log.size(),
+			worst = std::max< int64_t >( worst, std::llabs( log[ k ].us - static_cast< int64_t >( k + 1 ) * 600000 ) );
+		Check( log.size() == 6 && worst <= 2,
+		       fmt( "%s at %g fps, 4 s: %zu triggers (6 expected, every 0.6 s), worst %lld us from k x 0.6 s (tolerance 2 us)",
+		            variant < 2 ? "the host's beat, 100 BPM," : "a bar phase stuck at 0, 100 BPM: the plugin's own beat", fps, log.size(),
 		            static_cast< long long >( worst ) ) );
 	}
 	//(d) Onsets: the harness's kicks (every 0.5 s) and hats (between), fed

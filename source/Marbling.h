@@ -120,7 +120,7 @@ private:
 	void refreshMenu();
 	void uploadOps( const ffglex::FFGLShader& shader, int count, int forceCompleteBelow, int height );
 	void commonUniforms( const ffglex::FFGLShader& shader, int x, int y, int w, int h, int outW, int outH );
-	bool writePalette( int width, int height );
+	bool writePalette( const FFGLTextureStruct* input, int width, int height );
 	bool bake( int count, int width, int height );
 	bool resizeMap( int width, int height );
 	void display( const FFGLTextureStruct* input, const GLint* hostViewport, GLuint hostFBO, int width, int height );
