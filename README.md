@@ -139,7 +139,9 @@ AGENTS.md has them all.
   off and Onsets on, so it can see).
 - **Defaults.** Drop Size from Arena's 33 demo clips: at 0.08 the median clip keeps 0.905 of
   its colour spread (0.12: 0.76). The rest are choices: AGENTS.md says why.
-- **Cost**: see AGENTS.md, Cost (this Mac's GPU, shared with other builds while measured).
+- **Cost** (this Mac's GPU, shared with other builds; GL_TIME_ELAPSED medians): the defaults
+  0.24 ms at 720p and **0.53 ms at 1080p (3.2% of a 60 fps frame)**; the most a frame can trace
+  (64 ops) 0.57 and 1.21 ms. A bake frame's own cost was not measured.
 
 ### Not established
 
