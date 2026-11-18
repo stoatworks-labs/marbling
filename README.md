@@ -35,6 +35,38 @@ them](docs/hero.png)
 harness's colour card, 4.9 s into the harness's music at the defaults (`--frames 295 --set
 "Pattern=Bouquet"`), the last stroke just finished.</sub>
 
+<!-- downloads:start -->
+
+## Download
+
+**[v0.1.0](https://github.com/stoatworks-labs/marbling/releases/tag/v0.1.0)** — prebuilt for macOS and Windows. Pick your platform:
+
+<details>
+<summary><b>macOS</b> — Universal (Apple Silicon + Intel)</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| Universal (Apple Silicon + Intel) · .dmg disk image | [`marbling-0.1.0-macos-universal.dmg`](https://github.com/stoatworks-labs/marbling/releases/download/v0.1.0/marbling-0.1.0-macos-universal.dmg) | 583 KB |
+| Universal (Apple Silicon + Intel) · .zip archive | [`marbling-macos-universal.zip`](https://github.com/stoatworks-labs/marbling/releases/latest/download/marbling-macos-universal.zip) | 520 KB |
+
+</details>
+
+<details>
+<summary><b>Windows</b> — x64</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| x64 · .exe installer | [`marbling-0.1.0-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/marbling/releases/download/v0.1.0/marbling-0.1.0-windows-x86_64-setup.exe) | 356 KB |
+| x64 · .zip archive | [`marbling-windows-x86_64.zip`](https://github.com/stoatworks-labs/marbling/releases/latest/download/marbling-windows-x86_64.zip) | 245 KB |
+
+</details>
+
+All builds, checksums and release notes: [github.com/stoatworks-labs/marbling/releases](https://github.com/stoatworks-labs/marbling/releases).
+
+macOS builds are signed and notarised and open normally. The Windows builds are unsigned, so SmartScreen warns once.
+
+<!-- downloads:end -->
+
 ## The one idea
 
 **Every stroke a marbler makes is a map of the water's surface onto itself that moves ink and
@@ -145,8 +177,9 @@ added to its clip, the layer removed afterwards and nothing saved.
   Quit, and every composition file's modified time was unchanged.
 
 **On Windows** (Arena 7.27.1 on win-lab, Mesa's llvmpipe, no GPU, no sound device, 18 November
-2026), through plugin-bench's Arena gate with the DLL from a build dispatched before the tag (the
-same plugin source): **9 passed, 0 failed, 2 skipped**. It loads and registers as `SW Marbling` / `MA01`, all
+2026), through plugin-bench's Arena gate, twice: with the DLL from a build dispatched before the
+tag, and with the DLL from v0.1.0's own release zip (the same source; the two DLLs differ in
+hash): **9 passed, 0 failed, 2 skipped** both times. It loads and registers as `SW Marbling` / `MA01`, all
 19 parameters (Arena's Opacity first) match name, order, type, range and default, the two
 16-character names arrive whole, and it renders. At the defaults it is the identity there too
 (0 pixels from its bare input). The gate can't press a button, so Trigger and Paper were
