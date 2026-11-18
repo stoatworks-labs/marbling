@@ -1,8 +1,11 @@
 # marbling
 
 > **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
-> (Anthropic), directed and reviewed by a human author. **It has never been loaded into
-> Resolume, and it has never opened a live audio device.** What's established is established
+> (Anthropic), directed and reviewed by a human author. It has been loaded into **Resolume
+> Arena 7.29.0 on a Mac and 7.27.1 on Windows**, over a test card only, where it registers,
+> draws, and on the Mac answers its buttons, the Beat trigger and every control as the harness
+> says; **Onsets on Resolume's own FFT never fired there**, and it has never opened a live audio
+> device (see [Status](#status)). The rest is established
 > by an offline harness, `matest`, that drives the real plugin class through the same
 > `ProcessOpenGL` a host calls, in a headless GL context on a synthetic clock, on this Mac's GPU
 > at 1280x720 and 320x180 and on Apple's software renderer, and feeds it audio through the same
@@ -98,9 +101,60 @@ bit.
 
 ## Status
 
-**v0.1.0, 2026-11-16; public from 2026-11-18.** Built and verified offline on one Mac (Apple Silicon);
-never loaded into Resolume, never run against a real audio device, never built on Windows.
-No OpenFX port and no browser demo.
+**v0.1.0, 18 November 2026, and early days.** It has been loaded into Resolume Arena 7.29.0
+on a Mac and 7.27.1 on Windows, over a test card only (below). It hasn't been through a show,
+nothing has been timed inside Resolume, and it has never opened a live audio device.
+`oxbow probe` reads the bundle as a host does (`SW Marbling` / `MA01` / effect, inputs 1..1).
+There's a [user guide](docs/USER-GUIDE.md) and a [browser demo](#browser-demo), but no presets,
+no OpenFX port and no source version (`MA02` is held).
+
+### In Resolume Arena
+
+**On a Mac** (Arena 7.29.0, Apple M4 Max, 18 November 2026), over Arena's REST API and the
+composition monitor's snapshot, with the plugin's own log: one layer added on top of a
+composition holding an opaque colour card (the harness's, rendered at 1920x1080), SW Marbling
+added to its clip, the layer removed afterwards and nothing saved.
+
+- Arena registers **SW Marbling** and shows all 18 of its parameters after its own Opacity,
+  with the constructor's defaults to the float. The About line reads "Marbling v0.1.0 - MIT -
+  Stoatworks Labs, stoatworks-labs.com". Arena's clock reaches the plugin in milliseconds (the
+  plugin's vote picked a scale of 0.001).
+- **At the defaults, with nothing playing, it is the identity**: 0.0 levels from the bare card
+  and 0.0 between snapshots two seconds apart. Nothing triggers without sound.
+- **Trigger pressed over REST** (held 0.3 s) under Manual dropped ink over 47% of the middle of
+  the frame; a second later the picture was still to the level. Seventeen presses ran a whole
+  Nonpareil, still to the level two seconds after its last stroke; the eighteenth laid Auto
+  Paper's fresh sheet, 0.0 from the bare card. **Paper** after two presses: 0.0 from bare.
+- **Every control did what the harness says**, each read in a still context: one drop at Drop
+  Size 0.3 moved 1.8% of the frame, at 0.8 62%; Drop Rate 1 and 8 drops moved 2.2% and 5.1%;
+  the first stroke at Depth 0.2 and 0.9 changed the picture by 10.0 and 47.7 levels; **Tine
+  Spacing's** first comb left tines 83.1 px and 216.0 px apart at 0.2 and 0.6, against 85.6 and
+  215.0 px from the formula (4s of the frame's height); a stroke at Speed 0, the default and 1
+  stopped moving 2.1 s, 0.8 s and under 0.3 s after the press (2, 0.6 and 0.1 s set, plus the
+  press and a snapshot's latency). Stone with Auto Paper on laid a sheet on the trigger after its
+  drops; with it off, the drops started again on top; Nonpareil combed. Mix 0 and Arena's
+  Opacity 0 were 0.0 from the bare card.
+- **Beat** on Arena's clock: 25 of 29 snapshots in six seconds changed.
+- **Onsets on Resolume's FFT never fired.** With Arena's own demo clip Beat 001 playing on the
+  layer below (its transport running), the default trigger gave nothing in twelve seconds. SW
+  Needle v0.1.2, the fleet's VU meter, read the same "Composition" FFT on the same setup and
+  didn't move either, and woofer's agent saw the same on this Mac. So Resolume's FFT reached no
+  plugin here; why wasn't found, and Arena's audio settings were left as they were.
+- On launch the plugin listed 11 audio inputs (the menu is filled on the first frame under
+  Onsets) and opened none. No microphone prompt appeared. Arena's Quit dialog was answered
+  Quit, and every composition file's modified time was unchanged.
+
+**On Windows** (Arena 7.27.1 on win-lab, Mesa's llvmpipe, no GPU, no sound device, 18 November
+2026), through plugin-bench's Arena gate with the DLL from a build dispatched before the tag (the
+same plugin source): **9 passed, 0 failed, 2 skipped**. It loads and registers as `SW Marbling` / `MA01`, all
+19 parameters (Arena's Opacity first) match name, order, type, range and default, the two
+16-character names arrive whole, and it renders. At the defaults it is the identity there too
+(0 pixels from its bare input). The gate can't press a button, so Trigger and Paper were
+skipped, and with no sound device Audio Input and the Audio buffer were skipped. Under Trigger
+On Beat the other 10 controls all moved the picture; but under Beat the pattern grows and is
+cleared every few seconds whatever the controls do, so that says less about each control than
+the Mac's still-context reading above. Before that, CI compiles the DLL with MSVC (no warnings
+in this repo's code or earshot's) and `tools/wincheck.ps1` loads it as a host does.
 
 ### Measured offline, on macOS
 
@@ -154,8 +208,34 @@ AGENTS.md has them all.
   compressing a surfactant film. No feathering, no ink sinking, no colour mixing at an edge.
 - A stroke still moving does not drag a drop that falls during it (the later op is composed
   after it).
-- Resolume's FFT onsets: earshot's host fallback is frame-quantised and uncalibrated.
-- Windows: never built.
+- **Onsets on Resolume's FFT in a host.** It never fired in Arena on a Mac (above), and nothing
+  else on that input moved either. Offline, earshot's host fallback is frame-quantised and
+  uncalibrated.
+- **A live audio device.** Never opened: the device path is earshot's, tested there on a
+  scripted backend.
+- **How long a finished pattern should show.** Auto Paper waits for the last stroke, then lays
+  the sheet on the next trigger, so on fast onsets a finished marbling shows for about one
+  trigger (a quarter of a second at four a second). A hold would be a new control.
+- **λ = s/6** is the main source of a bake's blur (12% of pixels over half a pixel at the
+  default comb); a softer default would blur less but give a duller wake. The drop colours are
+  averaged in the clip's encoded values, not linear light. Edges are not antialiased.
+- **Drop Rate, Tine Spacing, Depth and Speed** are chosen on the harness's card, not measured
+  on clips; Drop Size's measure on the demo clips rewards contrast.
+- **Other GPUs.** One Apple GPU, Apple's software renderer and Mesa's llvmpipe only.
+
+### Patterns and flashes
+
+The combed patterns (Gelgit, Chevron, Nonpareil, Bouquet, French Curl) fill the frame with
+fine, high-contrast regular stripes, which the ITU-R BT.1702 / Ofcom pattern guidance treats
+as a photosensitivity risk on their own; the guide, the demo page and the release video say so
+at the top. Flashes were measured on all 33 of Resolume's demo clips through `matest --pipe` at
+60 fps (xenon's flashcheck rule: the whole frame and 25 third-of-frame windows in linear light),
+with the clips' own stems (`--wav`), the stems layered and limited hot, or a 128 or 200 BPM
+beat, at the defaults, 8 drops a trigger, 8 of the largest drops with the fastest strokes (also
+as Stone and Suminagashi), and Suminagashi at its defaults: **no clip went over three flashes a
+second at any of them**. The plugin's own worst was two a second over the whole frame
+(Suminagashi at its fastest, on a clip with none bare); the one clip at three a second, in a
+third of the frame, was at three bare.
 
 ## Browser demo
 
@@ -198,7 +278,7 @@ cmake --install build
 The last one copies `Marbling.bundle` into `~/Documents/Resolume Arena/Extra Effects`.
 Restart Arena: **SW Marbling** is under Effects.
 
-Windows needs Visual Studio 2022 and vcpkg (for GLEW). It has never been built.
+Windows needs Visual Studio 2022 and vcpkg (for GLEW, `x64-windows-static-md`); `.github/workflows/ci.yml` is the recipe CI runs.
 
 ## Building and testing
 

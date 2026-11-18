@@ -13,9 +13,13 @@ Silicon, macOS 26) against a fresh universal Release build: every check at 1280x
 320x180, ten on Apple's software renderer at 320x180, `--offline` with no GL context, Arena's
 two DXV alpha clips through `--pipe`, the pipe, 20 of 20 negative controls, 27 of 27 mutants,
 11 of 11 controls alive in the sweep, oxbow reading and rendering the bundle with devices
-disabled. **Never loaded into Resolume; no live audio device ever opened.** Never built on
-Windows before its CI. earshot is a snapshot of `github.com/stoatworks-labs/earshot` at
-`8124191`, unpatched.
+disabled. **Loaded into Resolume Arena 7.29.0 on a Mac (REST and the composition monitor, a
+test card) and 7.27.1 on Windows (plugin-bench's gate, 9 passed, 0 failed, 2 skipped) on
+2026-11-18; README's Status has the readings. No live audio device ever opened.** Onsets on
+Resolume's FFT never fired in Arena on the Mac, and SW Needle on the same FFT didn't move either
+(open question 8). The DLL is built by CI (MSVC, clean on the first compile of marbling and
+earshot). earshot is a snapshot of `github.com/stoatworks-labs/earshot` at `8124191`,
+unpatched.
 
 ## The idea
 
@@ -297,6 +301,12 @@ block.
    (compose a new drop before the moving strokes), but it breaks "ops in trigger order".
 6. **Antialiasing**: edges are pixel-sharp. [Lu]'s 2×2 RGSS would cost four traces a pixel.
 7. **MA02**, the source version (a bath of the plugin's own colours): held, not built.
+8. **Resolume's FFT in Arena on this Mac gave nothing** (2026-11-18): Beat 001.mov playing on
+   the layer below, transport running, no onset in 12 s; SW Needle v0.1.2's VU on the same
+   "Composition" buffer didn't move, and woofer's cone didn't either. Arena's audio settings
+   (output NDI Audio, an input with 0 channels) were not changed to chase it. Whether the
+   FFGL buffer is empty there, or Resolume's FFT needs an input device, is open; `matest
+   --silent` covers the empty-buffer case (no triggers, no crash).
 
 ## Browser demo
 
@@ -363,8 +373,9 @@ woofer's pattern.
   changes at the trigger rate (a new drop's push, Auto Paper's fresh sheet, Suminagashi's
   alternating ink and clear drops). No default was changed for it, and there is no gate: the
   page opens playing on the plugin's defaults (Nonpareil on onsets). Embed mode (`?embed=1`)
-  hides the note. It carries no measured flash figures: the release's flash survey (xenon's
-  flashcheck rule over Resolume's demo clips) had not sent its figures when the page landed.
+  hides the note. Its flash figures are the release's survey (README, "Patterns and flashes":
+  xenon's flashcheck rule over all 33 of Resolume's demo clips through `matest --pipe --wav`;
+  none over three flashes a second at any setting tried, the plugin's own worst two a second).
 - **Checked by `tools/verify.sh`** (`demo/tools/check_shaders.py`, its new "Browser demo's
   copies" step): the seven GLSL pieces character for character and the order the five stages
   join them (read from Marbling.cpp's `Stage` table, `Assemble()` and InitGL's one `Compile`);
