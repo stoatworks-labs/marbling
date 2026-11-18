@@ -115,7 +115,7 @@ jobs:
         # pwsh checks only the LAST exit code of a step: it is checked here.
         # -Params changes whenever a control or the About block does.
         run: |
-          ./tools/wincheck.ps1 -Dll "build/Release/Marbling.dll" -Name "SW Marbling" -Id MA01 -Kind effect -Params 17 -First "Pattern"
+          ./tools/wincheck.ps1 -Dll "build/Release/Marbling.dll" -Name "SW Marbling" -Id MA01 -Kind effect -Params 18 -First "Pattern"
           if( $LASTEXITCODE ) { exit $LASTEXITCODE }
 
       - uses: actions/upload-artifact@v7

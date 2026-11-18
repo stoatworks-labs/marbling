@@ -2,7 +2,7 @@
     What a host sees of a built Windows DLL, with no GL and no Resolume.
 
         tools/wincheck.ps1 -Dll build/Release/Marbling.dll -Name "SW Marbling" `
-                           -Id MA01 -Kind effect -Params 17 -First "Pattern"
+                           -Id MA01 -Kind effect -Params 18 -First "Pattern"
 
     It LOADS the DLL (so a missing runtime or dependency fails here, where
     dumpbin cannot see it), finds plugMain, and asks it what Resolume asks

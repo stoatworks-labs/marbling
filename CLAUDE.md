@@ -95,9 +95,10 @@ bath's sequence or bake choice (`Bath::Trigger`, `Bath::BakeCount`), the event t
 - `external/earshot/` is a snapshot of earshot (`github.com/stoatworks-labs/earshot`) at
   `8124191`, unpatched (`SNAPSHOT`). Never edit it here; change earshot upstream and take a new
   snapshot. Its own CLAUDE.md and AGENTS.md are earshot's as of that commit, status lines and all.
-- **Provisional hand copies:** `source/StoatworksAbout*.h` (guide = "", no user guide) and
-  `ATTRIBUTIONS.md`. Once the project is registered in stoatworks-backend, `sync-about.py`
-  and `sync-attributions.py` generate them; edit them there then.
+- **Generated, never hand-edited:** `source/StoatworksAbout*.h` (stoatworks-backend's
+  `sync-about.py`), `ATTRIBUTIONS.md` and the README's attributions block
+  (`sync-attributions.py`), `.github/ISSUE_TEMPLATE/` (`sync-issue-templates.py`). Change
+  the source tables in stoatworks-backend and re-run them.
 - **CI** (`.github/workflows/ci.yml`): macOS builds arm64 with the tools and runs `--list`,
   `--offline` and `glslc`; Windows builds the DLL with MSVC and loads it as a host does
   (`tools/wincheck.ps1`, whose `-Params` changes whenever a control or the About block does;
