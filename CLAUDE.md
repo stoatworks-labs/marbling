@@ -23,12 +23,14 @@ bath's sequence or bake choice (`Bath::Trigger`, `Bath::BakeCount`), the event t
 - Configure: `cmake -B build -DCMAKE_BUILD_TYPE=Release`
 - Fast dev build: add `-DCMAKE_OSX_ARCHITECTURES=arm64`
 - Build: `cmake --build build -j8`
-- Install to Resolume: `cmake --install build`. Never from a shared session on this Mac:
-  nothing here has been loaded into Arena.
+- Install to Resolume: `cmake --install build`. Never from a shared session on this Mac: Allan's
+  Arena opens his show composition. The release's Arena checks (README, Status) went through a
+  scratch bundle, a layer added and removed over REST, and nothing saved.
 - Render offline: `./build/matest --out /tmp/m.png` (the defaults on the harness's colour card,
   fed the harness's kicks and hats through earshot's `feed()`, 12 s in); `--frames N`,
-  `--size WxH`, `--clip F` (raw RGBA at `--size`), `--silent`, `--beat BPM` (the host's beat:
-  set `Trigger On=Beat` to use it).
+  `--size WxH`, `--clip F` (raw RGBA at `--size`), `--silent`, `--wav F` (a WAV's music, looped,
+  through the same `feed()`: the release video and flash survey use Resolume's demo stems this
+  way), `--beat BPM` (the host's beat: set `Trigger On=Beat` to use it).
 - List parameters: `./build/matest --list`
 - Set anything by name: `./build/matest --set "Pattern=Bouquet" --set "Depth=0.5"` (a standard
   control takes the host's 0..1; an option takes its name; anything else is refused, exit 2).

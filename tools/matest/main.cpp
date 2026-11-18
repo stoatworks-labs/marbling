@@ -697,12 +697,118 @@ enum class AudioSource
 {
 	Music,  ///< the harness's kicks and hats, through earshot's feed()
 	Silent, ///< nothing fed: Resolume's FFT path with an empty buffer
+	Wav,    ///< --wav: a file's music, looped, through earshot's feed()
 };
+
+//---------------------------------------------------------------------------
+// --wav: PCM 16/24/32 or float 32, any rate and channel count. The first two
+// channels are averaged (the rig feeds the same sample to both sides), read
+// at the file's own rate by linear interpolation, and looped, as a clip's
+// stem loops under it in a composition (woofer's reader).
+//---------------------------------------------------------------------------
+struct Wav
+{
+	int rate = 0;
+	Floats mono;
+};
+Wav g_wav;
+
+bool readWav( const std::string& path, Wav& wav, std::string& error )
+{
+	std::ifstream file( path, std::ios::binary );
+	if( !file )
+	{
+		error = "cannot open " + path;
+		return false;
+	}
+	Bytes data( ( std::istreambuf_iterator< char >( file ) ), std::istreambuf_iterator< char >() );
+	auto u32 = [ & ]( size_t at ) { return static_cast< uint32_t >( data[ at ] | ( data[ at + 1 ] << 8 ) | ( data[ at + 2 ] << 16 ) | ( data[ at + 3 ] << 24 ) ); };
+	auto u16 = [ & ]( size_t at ) { return static_cast< uint32_t >( data[ at ] | ( data[ at + 1 ] << 8 ) ); };
+	if( data.size() < 12 || std::memcmp( data.data(), "RIFF", 4 ) != 0 || std::memcmp( data.data() + 8, "WAVE", 4 ) != 0 )
+	{
+		error = path + " is not a RIFF WAVE file";
+		return false;
+	}
+	int format = 0, bits = 0, channels = 0;
+	size_t at  = 12;
+	while( at + 8 <= data.size() )
+	{
+		const uint32_t size = u32( at + 4 );
+		if( std::memcmp( data.data() + at, "fmt ", 4 ) == 0 && at + 8 + 16 <= data.size() )
+		{
+			format   = static_cast< int >( u16( at + 8 ) );
+			channels = static_cast< int >( u16( at + 10 ) );
+			wav.rate = static_cast< int >( u32( at + 12 ) );
+			bits     = static_cast< int >( u16( at + 22 ) );
+			if( format == 0xFFFE && size >= 40 )
+				format = static_cast< int >( u16( at + 8 + 24 ) );
+		}
+		else if( std::memcmp( data.data() + at, "data", 4 ) == 0 )
+		{
+			if( channels <= 0 || wav.rate <= 0 || ( format != 1 && format != 3 ) )
+			{
+				error = path + ": only PCM or float WAV";
+				return false;
+			}
+			//A header claiming 0 or 8 bits would make a zero-sized frame and an
+			//endless loop below: refuse anything but the three depths read here.
+			if( bits != 16 && bits != 24 && bits != 32 )
+			{
+				error = path + ": only 16, 24 or 32-bit WAV";
+				return false;
+			}
+			const int bytes        = bits / 8;
+			const int kept         = std::min( 2, channels );
+			const size_t frameSize = static_cast< size_t >( bytes ) * channels;
+			const size_t end       = std::min< size_t >( data.size(), at + 8 + size );
+			for( size_t p = at + 8; p + frameSize <= end; p += frameSize )
+			{
+				float sum = 0.0f;
+				for( int c = 0; c < kept; ++c )
+				{
+					const size_t q = p + static_cast< size_t >( c ) * bytes;
+					float v        = 0.0f;
+					if( format == 3 && bits == 32 )
+						std::memcpy( &v, &data[ q ], 4 );
+					else if( bits == 16 )
+						v = static_cast< int16_t >( u16( q ) ) / 32768.0f;
+					else if( bits == 24 )
+						v = static_cast< float >( static_cast< int32_t >( ( data[ q ] << 8 ) | ( data[ q + 1 ] << 16 ) | ( data[ q + 2 ] << 24 ) ) / 2147483648.0 );
+					else
+						v = static_cast< float >( static_cast< int32_t >( u32( q ) ) / 2147483648.0 );
+					sum += v;
+				}
+				wav.mono.push_back( sum / static_cast< float >( kept ) );
+			}
+			if( wav.mono.empty() )
+				error = path + ": no samples";
+			return !wav.mono.empty();
+		}
+		at += 8 + size + ( size & 1 );
+	}
+	error = path + ": no data chunk";
+	return false;
+}
+
+double wavAt( double t )
+{
+	if( t < 0.0 || g_wav.mono.empty() )
+		return 0.0;
+	const double n   = static_cast< double >( g_wav.mono.size() );
+	const double pos = std::fmod( t * g_wav.rate, n );
+	const size_t i   = static_cast< size_t >( pos );
+	const double f   = pos - static_cast< double >( i );
+	const float a    = g_wav.mono[ i ];
+	const float b    = g_wav.mono[ ( i + 1 ) % g_wav.mono.size() ];
+	return a + ( b - a ) * f;
+}
 
 void attachAudio( Rig& rig, AudioSource source, double beatBpm )
 {
 	if( source == AudioSource::Music )
 		rig.audio = musicAt;
+	else if( source == AudioSource::Wav )
+		rig.audio = wavAt;
 	rig.beatBpm = beatBpm;
 }
 
@@ -856,6 +962,7 @@ int main( int argc, char** argv )
 			             "  --set \"Name=V\"    set a parameter by its display name (an option by its name). Repeatable.\n"
 			             "  --at N \"Name=V\"  (with --out) set it at frame N instead; an event is released the frame after\n"
 			             "  --silent          feed no music (default: the harness's kicks and hats through earshot's feed())\n"
+			             "  --wav PATH        feed this WAV's music instead, looped, through earshot's feed()\n"
 			             "  --beat BPM        the host's beat: SetBeatInfo every frame (Trigger On = Beat to use it)\n"
 			             "  --list            every parameter and its default\n"
 			             "  --pipe            raw RGBA frames in on stdin, out on stdout\n"
@@ -892,6 +999,16 @@ int main( int argc, char** argv )
 			beatBpm = std::strtod( argv[ ++i ], nullptr );
 		else if( argument == "--silent" )
 			source = AudioSource::Silent;
+		else if( argument == "--wav" && hasNext )
+		{
+			std::string error;
+			if( !readWav( argv[ ++i ], g_wav, error ) )
+			{
+				std::fprintf( stderr, "--wav: %s\n", error.c_str() );
+				return 2;
+			}
+			source = AudioSource::Wav;
+		}
 		else if( argument == "--at" && i + 2 < argc )
 		{
 			const int at = std::atoi( argv[ ++i ] );
