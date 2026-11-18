@@ -363,7 +363,8 @@ woofer's pattern.
   changes at the trigger rate (a new drop's push, Auto Paper's fresh sheet, Suminagashi's
   alternating ink and clear drops). No default was changed for it, and there is no gate: the
   page opens playing on the plugin's defaults (Nonpareil on onsets). Embed mode (`?embed=1`)
-  hides the note.
+  hides the note. It carries no measured flash figures: the release's flash survey (xenon's
+  flashcheck rule over Resolume's demo clips) had not sent its figures when the page landed.
 - **Checked by `tools/verify.sh`** (`demo/tools/check_shaders.py`, its new "Browser demo's
   copies" step): the seven GLSL pieces character for character and the order the five stages
   join them (read from Marbling.cpp's `Stage` table, `Assemble()` and InitGL's one `Compile`);
@@ -431,8 +432,10 @@ woofer's pattern.
   Trigger lays a drop of radius 0; a frame is a display refresh; WebAssembly has no fused
   multiply-add and musl's libm; the clip is 8-bit and premultiplied by the kit and again by the
   plugin, so the kit's alpha clip is left out; the warning is the page's; the About block is
-  off the panel; nothing is measured against Resolume, and the plugin has never been in Resolume
-  or opened a device.
+  off the panel; nothing on the page is measured against Resolume (the crosscheck is against
+  matest; the release's Arena checks, Mac and win-lab, drove the plugin, not this page); Onsets
+  on Resolume's FFT has not been seen to trigger in a host, and the plugin has never opened an
+  audio device.
 - **Traps hit**: the shim needs `(?:\.|->)Compile\(` in check_shaders (InitGL calls
   `stage.shader->Compile`); kit textures and framebuffers must be in emscripten's
   `GL.textures`/`GL.framebuffers` with `.name` set, or the plugin's saved-state glGet reads 0
