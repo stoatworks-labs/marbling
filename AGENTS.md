@@ -7,14 +7,15 @@ built section records where this repo departs from it).
 
 ## Status
 
-**v0.1.0, local only, 2026-11-17.** `OXBOW=… tools/verify.sh` passes on this Mac (Apple
+**v0.1.0, 2026-11-17; public at `github.com/stoatworks-labs/marbling` from 2026-11-18.**
+`OXBOW=… tools/verify.sh` passes on this Mac (Apple
 Silicon, macOS 26) against a fresh universal Release build: every check at 1280x720 and
 320x180, ten on Apple's software renderer at 320x180, `--offline` with no GL context, Arena's
 two DXV alpha clips through `--pipe`, the pipe, 20 of 20 negative controls, 27 of 27 mutants,
 11 of 11 controls alive in the sweep, oxbow reading and rendering the bundle with devices
 disabled. **Never loaded into Resolume; no live audio device ever opened.** Never built on
-Windows. No remote, nothing released, not on the website. earshot is a snapshot of
-`~/dev/earshot` at `8124191`, unpatched.
+Windows before its CI. earshot is a snapshot of `github.com/stoatworks-labs/earshot` at
+`8124191`, unpatched.
 
 ## The idea
 
@@ -87,8 +88,10 @@ ink is blended, so an edge between two inks stays sharp however many strokes cro
   `MARBLING_NO_DEVICES` is unset; the menu is listed on the first frame that needs it, never in
   the constructor. earshot's CMake links CoreAudio, AudioToolbox and CoreFoundation at load
   time, so the claim is "nothing calls into them or loads them by name", not "not linked".
-- **No `.github/workflows/`.** The repo is private and has no remote; Actions are for public
-  repos only on this machine.
+- **Workflows only once public.** The machine's rule is GitHub Actions on public repos only.
+  Until it was public marbling shipped none, so nothing could run by accident; `ci.yml` and
+  `release.yml` came with the public repo (woofer's, with its `wincheck.ps1`). The
+  software-renderer subset stays in verify.sh: a runner's GL is not Apple's software renderer.
 
 ## Defaults
 

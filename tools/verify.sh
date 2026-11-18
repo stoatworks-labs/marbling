@@ -89,9 +89,6 @@ echo "ok   FFGL SDK pinned at $pin"
 grep -q '^Commit:   8124191 ' external/earshot/SNAPSHOT || fail "external/earshot/SNAPSHOT is not earshot 8124191"
 grep -q '^Patches:  none' external/earshot/SNAPSHOT || fail "external/earshot/SNAPSHOT records a patch: AGENTS.md must say what and why"
 echo "ok   earshot snapshot 8124191, unpatched"
-# No workflows: the repo is private, and the fleet runs Actions only on public repos.
-[[ ! -d .github/workflows ]] || fail ".github/workflows exists: this repo builds and tests locally only"
-echo "ok   no GitHub workflows"
 
 #---------------------------------------------------------------------------
 step "Build (universal)"
@@ -114,6 +111,14 @@ fi
 rm -f "$log"
 echo "ok   built, no warnings outside external/"
 MATEST="$BUILD/matest"
+# The Windows jobs check the DLL's parameter count (tools/wincheck.ps1
+# -Params): it moves whenever a control or the About block does, and a stale
+# number fails only on a runner, after a push.
+count="$( "$MATEST" --list | tail -n +2 | grep -c . )"
+for wf in .github/workflows/ci.yml .github/workflows/release.yml; do
+	grep -q -- "-Params $count -First \"Pattern\"" "$wf" || fail "$wf does not check -Params $count -First \"Pattern\" (matest --list has $count)"
+done
+echo "ok   ci.yml and release.yml check the DLL's $count parameters"
 
 #---------------------------------------------------------------------------
 step "Bundle"

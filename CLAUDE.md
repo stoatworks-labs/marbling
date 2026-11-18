@@ -5,7 +5,8 @@ on water and combed with [Lu]'s closed-form tools (drop, tine line, comb, wavy c
 comb, vortex), every one exactly area-preserving on the plane. The bath is a backward map:
 the newest ≤ 64 ops traced exactly per pixel per frame, older ops baked into an RGBA32F map.
 Triggers from earshot's onsets, the host's beat or a button. C++/GLSL, CMake MODULE →
-universal `.bundle` (macOS) + Windows `.dll` (never built). MIT.
+universal `.bundle` (macOS) + Windows `.dll` (built on GitHub's Windows runner). MIT. Public:
+`github.com/stoatworks-labs/marbling`.
 
 | id | display name | bundle | type |
 | --- | --- | --- | --- |
@@ -39,8 +40,8 @@ bath's sequence or bake choice (`Bath::Trigger`, `Bath::BakeCount`), the event t
 
 ## Verify
 - Everything: `OXBOW=/path/to/oxbow tools/verify.sh` under bash (GLSL reserved words and
-  WebGL2 gaps, `glslc`, the submodule pin, the earshot snapshot, no workflows, a fresh
-  universal build with no warnings outside `external/`, lipo, plist, ad-hoc signature,
+  WebGL2 gaps, `glslc`, the submodule pin, the earshot snapshot, a fresh
+  universal build with no warnings outside `external/`, the workflows' parameter count, lipo, plist, ad-hoc signature,
   `oxbow probe` and `selftest` -- oxbow is required, never skipped; every check at 1280x720 and
   320x180; ten again on Apple's software renderer at 320x180; `--offline`; Arena's alpha clips
   through `--pipe`; the pipe; the negative controls; 27 mutants; the sweep; the bench). The
@@ -91,16 +92,22 @@ bath's sequence or bake choice (`Bath::Trigger`, `Bath::BakeCount`), the event t
 - `marbling_core` is an OBJECT library: the plugin registers itself from a file-scope
   constructor nothing references.
 - The macOS build must be universal. Check with `lipo`, never the build log.
-- `external/earshot/` is a snapshot of `~/dev/earshot` at `8124191`, unpatched (`SNAPSHOT`).
-  Never edit it here; change earshot upstream and take a new snapshot.
+- `external/earshot/` is a snapshot of earshot (`github.com/stoatworks-labs/earshot`) at
+  `8124191`, unpatched (`SNAPSHOT`). Never edit it here; change earshot upstream and take a new
+  snapshot. Its own CLAUDE.md and AGENTS.md are earshot's as of that commit, status lines and all.
 - **Provisional hand copies:** `source/StoatworksAbout*.h` (guide = "", no user guide) and
   `ATTRIBUTIONS.md`. Once the project is registered in stoatworks-backend, `sync-about.py`
   and `sync-attributions.py` generate them; edit them there then.
-- **No `.github/workflows/`, on purpose.** GitHub Actions only on a public repo, and this one
-  has no remote. Add CI (`matest --offline` and the software-renderer subset) only once it is
-  public.
-- Local only: `~/dev/marbling`, no remote, nothing released, not on the website, never loaded
-  into Resolume. The spec is `~/Projects/resolume/specs/SPEC-marbling.md`.
+- **CI** (`.github/workflows/ci.yml`): macOS builds arm64 with the tools and runs `--list`,
+  `--offline` and `glslc`; Windows builds the DLL with MSVC and loads it as a host does
+  (`tools/wincheck.ps1`, whose `-Params` changes whenever a control or the About block does;
+  verify.sh fails if either workflow's number is not `matest --list`'s). `release.yml` builds the
+  universal bundle and the DLL with their zips, `.dmg` and installer; dispatched by hand it
+  builds without publishing, and a `v*` tag publishes. Actions only because the repo is public:
+  a private copy must never enable them. The software-renderer subset stays in verify.sh: a
+  runner's GL is not Apple's software renderer.
+- Checkout: `~/Projects/resolume/marbling`, public at `github.com/stoatworks-labs/marbling`. The
+  spec is `~/Projects/resolume/specs/SPEC-marbling.md`.
 
 ## Diagnostics
 

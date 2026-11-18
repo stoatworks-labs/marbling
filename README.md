@@ -64,7 +64,9 @@ them. s is Tine Spacing (the ¼" comb; ½" = 2s, 1" = 4s).
 
 ## Triggers
 
-- **Onsets** (the default): drum hits, from earshot. Resolume's FFT by default, or a capture
+- **Onsets** (the default): drum hits, from [earshot](https://github.com/stoatworks-labs/earshot),
+  the fleet's live-audio front end ([a snapshot](external/earshot/SNAPSHOT) of commit `8124191`,
+  unmodified). Resolume's FFT by default, or a capture
   device. Bands that fire within 50 ms are one trigger.
 - **Beat**: each quarter of Resolume's bar, placed inside the frame.
 - **Manual**: the Trigger button only. The button works under every source.
@@ -96,7 +98,7 @@ bit.
 
 ## Status
 
-**2026-11-16, v0.1.0, local only.** Built and verified offline on one Mac (Apple Silicon);
+**v0.1.0, 2026-11-16; public from 2026-11-18.** Built and verified offline on one Mac (Apple Silicon);
 never loaded into Resolume, never run against a real audio device, never built on Windows.
 No OpenFX port and no browser demo.
 

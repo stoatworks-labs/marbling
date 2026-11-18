@@ -15,27 +15,27 @@ their work.
 
 ### Live audio — Stoatworks earshot
 
-<https://github.com/stoatworks-labs/earshot> (intended home; on 2026-11-16 a local repository only)  
+<https://github.com/stoatworks-labs/earshot>  
 Licence: MIT  
-Copyright: Stoatworks
+Copyright: Stoatworks Labs
 
 Vendored at external/earshot as a snapshot of commit 8124191, unmodified (external/earshot/SNAPSHOT). The capture device worker, the device list and keys, the band onsets (`Band::onsetCount`, `lastOnsetTime`) that Trigger On = Onsets merges into triggers, `feed()` (which the harness drives), and the fallback to Resolume's FFT bins. earshot's own attributions (spasis, pattern, miniaudio) are in external/earshot/ATTRIBUTIONS.md.
 
 ### The device menu — Stoatworks spasis, by way of rubens
 
-<https://github.com/stoatworks-labs/spasis>  
+<https://github.com/stoatworks-labs/spasis>, <https://github.com/stoatworks-labs/rubens>  
 Licence: MIT  
 Copyright: Stoatworks Labs
 
-The Audio Input option whose values are device-name keys, so a composition remembers the name and never the index, with spare slots (source/Audio.cpp, source/Controls.cpp). Adapted from rubens (local only), which adapted it from spasis.
+The Audio Input option whose values are device-name keys, so a composition remembers the name and never the index, with spare slots (source/Audio.cpp, source/Controls.cpp). Adapted from rubens, which adapted it from spasis.
 
 ### The plugin shell, the harness and the tooling — Stoatworks rubens and haze
 
-rubens and haze: local repositories on 2026-11-16  
+<https://github.com/stoatworks-labs/rubens>, <https://github.com/stoatworks-labs/haze>  
 Licence: MIT  
 Copyright: Stoatworks Labs
 
-The OBJECT core with the plugin registered from the MODULE target alone, the table of controls, the host-clock vote (rosette's, by way of haze), the About block (source/StoatworksAbout*.h, a provisional hand copy of rubens's); the harness's rig, PNG writer, cue sheets, `--pipe`/`--film` (SIGPIPE ignored, a closed stdout exits 1), `--negative` with its perturbation hooks, `--names`, `--cues`, `--offline` and `--bench`; tools/verify.sh, tools/mutate.sh, tools/glslc.sh and tools/sweep.py are rubens's, adapted (mutate.sh now rebuilds one tree and proves each mutant is in the build). tools/clips.py is nipkow's (local only), by way of intensifier.
+The OBJECT core with the plugin registered from the MODULE target alone, the table of controls, the host-clock vote (rosette's, by way of haze), the About block (source/StoatworksAbout*.h, a provisional hand copy of rubens's); the harness's rig, PNG writer, cue sheets, `--pipe`/`--film` (SIGPIPE ignored, a closed stdout exits 1), `--negative` with its perturbation hooks, `--names`, `--cues`, `--offline` and `--bench`; tools/verify.sh, tools/mutate.sh, tools/glslc.sh and tools/sweep.py are rubens's, adapted (mutate.sh now rebuilds one tree and proves each mutant is in the build). tools/clips.py is nipkow's (<https://github.com/stoatworks-labs/nipkow>), by way of intensifier (<https://github.com/stoatworks-labs/intensifier>).
 
 ### The beat — Stoatworks ferrofluid
 
