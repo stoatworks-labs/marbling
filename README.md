@@ -157,6 +157,24 @@ AGENTS.md has them all.
 - Resolume's FFT onsets: earshot's host fallback is frame-quantised and uncalibrated.
 - Windows: never built.
 
+## Browser demo
+
+[marbling-demo.stoatworks-labs.com](https://marbling-demo.stoatworks-labs.com/) runs the plugin
+in your browser: its own C++, the plugin class with its op list, the patterns' recipes, its
+audio input and earshot under it, compiled unmodified to WebAssembly and drawing with its own
+GLSL in WebGL2. The page is the host, and it never opens or lists an audio device or asks for a
+microphone. It feeds the plugin through earshot's `feed()` as `matest` does: `matest`'s own
+kicks and hats, nothing at all (`matest --silent`), or an audio file of yours decoded in the
+page and never uploaded; nothing is played aloud. Beat takes a tempo the page sends as
+`SetBeatInfo`, as `matest --beat` does. Audio Input and the live-device path are not in the
+browser. The clip is the harness's colour card, drawn in the page. A frame of the page matched
+`matest`'s on the same settings, audio and presses in six cases, with the triggers on the same
+frames: every value within one 8-bit code but for at most 0.28% of a frame's pixels, all at ink
+edges, which the two GPUs put on different sides of a pixel centre
+([AGENTS.md](AGENTS.md#browser-demo) has the figures). The combed patterns fill the
+frame with fine high-contrast stripes, and the page says so at the top. It is a demo, not the
+plugin, and the page lists what it leaves out.
+
 ## Build
 
 macOS (universal: Apple Silicon and Intel):

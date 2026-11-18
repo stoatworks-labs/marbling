@@ -72,6 +72,10 @@ bath's sequence or bake choice (`Bath::Trigger`, `Bath::BakeCount`), the event t
   Manual, the plugin neither lists devices nor looks a name up. A microphone prompt in a test
   run is a bug.
 - Shared Mac: arm64 builds while iterating, no 4K loops, never kill a process you didn't start.
+- Browser demo (`demo/`, AGENTS.md "Browser demo"): after ANY change under `source/` or
+  `external/earshot/`, rerun `demo/tools/build-wasm.sh` (emscripten) and commit its outputs;
+  after a shader change, `python3 demo/tools/check_shaders.py --write`. verify.sh fails until
+  you do. Against matest: `python3 demo/tools/crosscheck.py --matest build/matest`.
 
 ## Notes
 - **Plane units are frame heights**, origin at the frame centre, y down. Ops are stored in

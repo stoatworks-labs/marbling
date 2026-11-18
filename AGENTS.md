@@ -297,3 +297,151 @@ block.
    (compose a new drop before the moving strokes), but it breaks "ops in trigger order".
 6. **Antialiasing**: edges are pixel-sharp. [Lu]'s 2×2 RGSS would cost four traces a pixel.
 7. **MA02**, the source version (a bath of the plugin's own colours): held, not built.
+
+## Browser demo
+
+https://marbling-demo.stoatworks-labs.com/ (2026-11-18), from `demo/`, deployed by
+`wrangler.toml` (a Worker route: the zone is at Cloudflare's 100 custom domains, so
+`marbling-demo` is a proxied AAAA `100::` record made through the API) and
+`.github/workflows/deploy.yml` on every push to main. carousel's, mirrorball's, fountain's and
+woofer's pattern.
+
+- **It runs the plugin, it doesn't port it.** `demo/marbling-core.wasm` is `Marbling.cpp` and
+  everything it calls (Bath, Controls, Audio, PassBuffer, Shaders, Diag), earshot's snapshot
+  (every `src/*.cpp` but `Miniaudio.cpp`/`MiniaudioImpl.cpp`, with `NoCapture.cpp`: its own
+  `EARSHOT_CAPTURE=OFF` build, so the module has no device backend at all) and the FFGL SDK's
+  plugin classes, FFGLLog, FFGLShader, FFGLFBO, FFGLScreenQuad and the scoped bindings,
+  compiled unmodified by emscripten (`demo/tools/build-wasm.sh`, em++ 6.0.5, `-O3`, about 15 s).
+  The op list, the recipes, Auto Paper, the triggers and the passes are that C++. Left out:
+  `EffectPlugin.cpp`. The script fails if a `source/*.cpp` or an earshot `src/*.cpp` it doesn't
+  list appears.
+- **What is the page's**: `demo/wasm/glue.cpp` plays the host (constructs the plugin, reads its
+  declarations back through the SDK so the panel is built from them, forwards
+  SetFloatParameter, SetTime, SetBeatInfo and ProcessOpenGL as matest's Rig does, and hands the
+  page the harness's accessors: the plugin's clock, ops, bakes, the trigger log, the bath's
+  stage, earshot's state); `demo/wasm/gl_shim.cpp` takes glShaderSource (refusing any text that
+  isn't byte for byte the page's assembly of `demo/shaders.js`, then the kit's `port()`, then
+  checking line by line that the port changed only the version line, the precisions and the
+  word `precise` on sinSeries' `k` and `y`) and glEnable/glDisable/glIsEnabled
+  (GL_PROGRAM_POINT_SIZE, which WebGL2 lacks). The plugin draws into a host framebuffer of the
+  page's (RGBA8, registered in emscripten's tables so its saved-state glGet names it); the page
+  premultiplies that onto the canvas with its own small GLSL pass, because the plugin's output
+  is straight colour (Suminagashi's clear drops are alpha 0) and the kit's canvas is
+  premultiplied. Also the page's: the host row (audio, tempo, a file), the colour card (matest's
+  `lookCard` arithmetic as a kit clip, in float, 8-bit), the read-outs' units (H = frame
+  heights), tooltips, the thirteen presets (in frame heights, drops and seconds, through the
+  plugin's inverses via `ma_param_from`), the line under the picture and Diag's log from
+  emscripten's memory file system (`MARBLING_LOG_DIR=/marbling/logs`). Trigger and Paper are
+  buttons that send 1 then 0 (the kit has no event control). Off the panel: Audio Input, the
+  Audio buffer and the About block (the panel's note says so).
+- **The audio, never a device.** The page never calls a device API (`check_shaders.py` fails if
+  a served file names getUserMedia, enumerateDevices or mediaDevices), the module cannot open
+  one, and `ma_prepare` sets `MARBLING_NO_DEVICES=1`. The host row's choices: matest's music
+  (`musicAt` copied from `tools/matest/main.cpp` into the glue, with `kRate` and Rig::Render's
+  feed lines, held character for character by `check_shaders.py`), nothing fed (`--silent`:
+  earshot falls back to the Audio buffer, which nothing writes, so Onsets never fires), and a
+  file of the visitor's, decoded by `decodeAudioData` in an `OfflineAudioContext` at 48 kHz (no
+  output device), mono to both channels, fed through `ma_feed` and looped. Each frame feeds the
+  samples up to the page's clock before ProcessOpenGL, as matest does (frame 0 gets none).
+  Nothing is played aloud. Every audio change is a new instance from time 0 (a fresh sheet).
+- **The beat.** A tempo select (60–174 BPM, 120 by default) sent every frame as SetBeatInfo with
+  the bar's phase from the page's clock, `(phase0 + (t − t0) × BPM / 240) mod 1`, anchored at the
+  instance's start and moved on a tempo change so the phase carries on: at a constant tempo
+  exactly matest `--beat`'s `fmod(t × BPM / 240, 1)`. Sent under Onsets and Manual too, where it
+  is unused.
+- **The clock.** The page sends seconds from frame deltas (capped at 0.1 s). Each new instance
+  (load, a change of audio, Restart) is primed with five frames about a millisecond apart so
+  the plugin's seconds-or-milliseconds vote settles before the first frame shown (mirrorball's
+  fix); nothing is fed during them, so a paused page stands still. The plugin's clock then runs
+  about 5 ms ahead of the page's (its wall-clock frames before the vote settles); every op and
+  trigger is timed from it, so nothing moves by it (the crosscheck agrees). A Trigger pressed
+  while paused lays its drop at radius 0, and it grows when the clock moves; Paper shows at
+  once.
+- **Photosensitivity.** The note at the top names the fine, high-contrast regular stripes the
+  combed patterns (Gelgit, Chevron, Nonpareil, Bouquet, French Curl) fill the frame with, which
+  ITU-R BT.1702 / Ofcom's pattern guidance treats as a risk in themselves, and the large-area
+  changes at the trigger rate (a new drop's push, Auto Paper's fresh sheet, Suminagashi's
+  alternating ink and clear drops). No default was changed for it, and there is no gate: the
+  page opens playing on the plugin's defaults (Nonpareil on onsets). Embed mode (`?embed=1`)
+  hides the note.
+- **Checked by `tools/verify.sh`** (`demo/tools/check_shaders.py`, its new "Browser demo's
+  copies" step): the seven GLSL pieces character for character and the order the five stages
+  join them (read from Marbling.cpp's `Stage` table, `Assemble()` and InitGL's one `Compile`);
+  the kit's `port()` text (hashed) and a mirror of it per stage; all 18 uniforms set (19 calls)
+  by the setter their type takes, read from a hand table of the `uniform( shader, "Name", arg )`
+  calls checked against the source; matest's music and feed lines in the glue; no served file
+  naming a device API; the hashes of every input the .wasm was built from
+  (`demo/wasm/inputs.sha256`, 64 files) and the SDK pin; no output executable. Any change under
+  `source/` or `external/earshot/` needs `demo/tools/build-wasm.sh` rerun and its outputs
+  committed (mode 644).
+- **Compared with matest, once (2026-11-18), by `demo/tools/crosscheck.py`** (in the repo;
+  nothing runs it by itself: it needs Chrome, cdpshot and a built matest). Headless Chrome on
+  the real GPU (ANGLE on Metal), the page paused, the settings applied, the clock restarted,
+  then N presses of Step (the clock at N/60), with the page's own Trigger button clicked where
+  the case presses; the plugin's own output read back from the host framebuffer (before the
+  page premultiplies it) and the clip it was handed; `matest --pipe --fps 60 --beat BPM` gets
+  that clip N + 1 times with the same host values and the presses as a `--script`, and its last
+  frame (fed the same audio, its clock at N/60) is compared. Apple M4 Max, 640×360 (691,200
+  colour values a case), the colour card:
+
+  | case | audio | N | values off by 1 / 2–8 / more | pixels > 8 codes off (on an ink edge) | page: triggers, bakes |
+  | --- | --- | --- | --- | --- | --- |
+  | defaults: Nonpareil finished and still | music | 280 | 2,527 / 7 / 3 | 1 (1) | 17, 0 |
+  | Manual, Trigger at 20, 50, 80, 110 | music | 118 | 57 / 0 / 0 | 0 | 4, 0 |
+  | Beat at 128 BPM, Gelgit | nothing fed | 360 | 2,705 / 0 / 0 | 0 | 12, 0 |
+  | Suminagashi, 1 drop, Mix 50% | music | 240 | 8,746 / 0 / 0 | 0 | 16, 0 |
+  | Stone, 8 drops, Auto Paper off | music | 330 | 2,194 / 4 / 16 | 6 (6) | 22, 4 |
+  | French Curl, Speed 0.2 s, Auto Paper off | music | 420 | 4,821 / 826 / 158 | 99 (99) | 28, 1 |
+
+  Alpha identical in every case. The negative controls: matest with Depth one slider step
+  (0.001) off on the defaults case puts 135,411 values off (mean 2.92 codes against the case's
+  0.004); with every press one frame late on the Manual case, 101,233 (mean 0.83 against
+  0.00008). So the triggers land on the same frames and in the same places (onsets found by
+  earshot in wasm included), and the picture agrees to the last code except where an ink edge
+  passes within a last bit of a pixel centre: those pixels take the other ink, which is what a
+  hard-edged map does under any float difference (the bake and the finest combs make most of
+  them). Every pixel off by more than one code (642 at most, 0.28% of the frame, French Curl)
+  has a 4-neighbour more than 8 codes from it, but that test is weak on a combed picture, where
+  most of the frame is edge by it (93.7% of the finished Nonpareil, 66.5% of the French Curl):
+  the count is the figure, not the test. The mark the script applies: ≤ 0.5% of pixels off by
+  more than one code, every pixel off by more than 8 on an ink edge in one picture or the
+  other. The first run used
+  woofer's mark (max 8 codes, 1% of values) and failed four cases on exactly those edge pixels
+  and on Mix 50%'s one-code rounding; the defaults case then sat at 5.0 s, one frame after Auto
+  Paper's sheet (0 ops: an empty comparison its negative control could not see), and is now the
+  finished pattern, which the script requires.
+- **Also checked on the page** (CDP, the real GPU, 960×540): no console messages; Manual, one
+  Trigger: 1 trigger, 3 drops, 54% of pixels moved more than 8 codes 0.3 s later; Nonpareil on
+  the music reaches its finished pattern (stage done, 5 of 5 strokes, still) at 4.67 s, 17
+  triggers, and Auto Paper's sheet comes on the trigger at 4.77 s; Depth 0.4 against 0.15 at
+  the same frame differs in 93% of pixels, Bouquet against Nonpareil in 89%; Pattern changed
+  while playing takes effect on the next trigger; a 4 s mono WAV of 100 BPM kicks chosen
+  through the file input (CDP `DOM.setFileInputFiles`) decodes, starts a new instance and fires
+  Onsets about once a kick (10 triggers in 6.3 s), looped.
+- **Every gap, as the page discloses it** (banner, the panel's note, the "does not reproduce"
+  list): it runs the plugin, not a port, and the units, tooltips and presets are the page's;
+  no audio device or microphone, earshot built without capture, Audio Input and the Audio
+  buffer off the panel, the live-device path and Onsets on Resolume's own FFT absent; the audio
+  is the harness's track or a file decoded, resampled to 48 kHz and looped in the page, never
+  played aloud; the beat is a tempo the page sends, not Resolume's bar, tap or sync; every audio
+  change is a new instance from time 0; GL is emscripten's WebGL2 with four shimmed entry
+  points and the kit's GLSL port, which drops `precise`; the float targets need
+  EXT_color_buffer_float and the page stops without it; the page's premultiplying copy to the
+  canvas; the clock is the page's and primed, a paused control move moves nothing, a paused
+  Trigger lays a drop of radius 0; a frame is a display refresh; WebAssembly has no fused
+  multiply-add and musl's libm; the clip is 8-bit and premultiplied by the kit and again by the
+  plugin, so the kit's alpha clip is left out; the warning is the page's; the About block is
+  off the panel; nothing is measured against Resolume, and the plugin has never been in Resolume
+  or opened a device.
+- **Traps hit**: the shim needs `(?:\.|->)Compile\(` in check_shaders (InitGL calls
+  `stage.shader->Compile`); kit textures and framebuffers must be in emscripten's
+  `GL.textures`/`GL.framebuffers` with `.name` set, or the plugin's saved-state glGet reads 0
+  and restores the wrong binding; the kit's canvas is premultiplied and has no
+  `preserveDrawingBuffer`, so the crosscheck reads the page's host framebuffer through
+  `renderer.readback()` instead of the canvas; a control that shapes the ink (Pattern, the drops'
+  and comb's) acts on the next trigger, so moving it while paused changes nothing on screen
+  (the panel's note says so); the kit's inspector note says every declared parameter is on the
+  panel, so the page appends which three are not. bubble's `R32F` readback trap does not arise:
+  the plugin reads nothing back, and the crosscheck reads RGBA8 only.
+- **Not done**: the crosscheck has run once, on one GPU (Apple M4 Max); no other browser or GPU
+  has drawn the page.
