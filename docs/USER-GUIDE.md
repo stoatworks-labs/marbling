@@ -229,7 +229,7 @@ your show needs a guarantee, check your own clips.
 ## Performance
 
 On the Mac it was measured on (an Apple M4 Max), at the defaults on a 120 BPM beat, about
-**0.5 ms a frame at 1080p** (3% of a 60 fps frame) and 0.1 to 0.25 ms at 720p; at the most
+**0.3 to 0.5 ms a frame at 1080p** (2 to 3% of a 60 fps frame) and 0.1 to 0.25 ms at 720p; at the most
 it ever traces in a frame (64 strokes and drops) about **1.2 ms at 1080p**. The cost grows
 with how many strokes are being traced, not with how old the pattern is. The frame where old
 strokes are folded into the stored map was not timed on its own. Another GPU will differ, and

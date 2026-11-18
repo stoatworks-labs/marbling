@@ -63,8 +63,8 @@ reserved_words || fail "a GLSL reserved word is used as an identifier"
 step "GLSL: nothing WebGL2 lacks"
 #---------------------------------------------------------------------------
 # The fleet's browser demos run the shaders unedited in WebGL2 (GLSL ES 3.00).
-# Marbling has no demo yet; the rule is kept so one can be made without
-# rewriting a shader.
+# Marbling's demo (demo/) compiles them through its GL shim with only the
+# mechanical changes its build makes; this rule keeps them portable.
 if grep -nE '(^|[^A-Za-z_])(findMSB|findLSB|bitCount|bitfieldExtract|bitfieldInsert|bitfieldReverse|uaddCarry|usubBorrow|umulExtended|imulExtended|frexp|ldexp|fma|textureGather|textureQueryLevels|packUnorm4x8|unpackUnorm4x8)[[:space:]]*\(' source/Shaders.cpp | grep -vE '^[0-9]+:[[:space:]]*//' ; then
 	fail "a built-in GLSL ES 3.00 does not have is in the GLSL"
 fi
