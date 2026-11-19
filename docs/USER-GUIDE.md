@@ -36,8 +36,8 @@ just finished.*
 > twenty-seven one-character sabotages of its code are all caught. It registers and draws in
 > **Resolume Arena 7.29.0 on a Mac** and **7.27.1 on Windows**, and on the Mac its Trigger and
 > Paper buttons, the Beat trigger and every control did what the harness says they do. But
-> that was over a test card, not a show, and **Onsets on Resolume's own FFT (the default
-> trigger) has not yet been seen to fire in Arena** (see [Known limits](#known-limits)). The depths and drop sizes are choices, not
+> that was over a test card, not a show; **Onsets on Resolume's own FFT (the default trigger)
+> fired there with a demo drum loop playing** (see [Audio Input](#audio-input)). The depths and drop sizes are choices, not
 > measurements. **Try it on a spare layer first**, and shout if anything misbehaves.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
@@ -143,8 +143,9 @@ lays a fresh sheet at once, whatever is happening.
 Only used under **Onsets**.
 
 - **Resolume FFT** (default): Resolume's own audio analysis, the same the "Audio" source of
-  any audio-reactive effect reads. It never opens a device. See [Known limits](#known-limits):
-  in Arena on a Mac it gave no onsets during testing.
+  any audio-reactive effect reads. It never opens a device. In Arena on a Mac, Arena's demo drum
+  loop `Beat 001.wav` on the layer below fired it on its hits. Which of Resolume's audio it
+  hears is Resolume's **Audio** setting (below).
 - **System default**: your computer's default input, opened by the plugin.
 - **A device by name**: the inputs the plugin found when Onsets was first used. The
   composition remembers the device's name, not its place in the list, so it finds the same
@@ -154,6 +155,15 @@ Only used under **Onsets**.
 Choosing a device opens it, and on a Mac that asks you once to let Resolume use the
 microphone. The plugin never opens a device under Beat or Manual. Picking a device has not been
 tried in Resolume yet.
+
+**Resolume's Audio setting.** Resolume adds its own **Audio** control to Marbling, as to any
+effect that reads its audio analysis, with three choices. **Composition** (the default) hears
+every clip playing in the composition. **Local** hears only the clip Marbling is on: on a clip
+with its own sound track, that sound; over a picture-only clip, nothing. **External** hears
+Resolume's own audio input (Resolume's Preferences, under Audio), which in the Mac test heard
+nothing. A clip only has sound if its file has a sound track: Resolume's demo `.mov` clips are
+picture only, and their sound is in the matching `.wav` files, so play the `.wav` on a layer of
+its own.
 
 ---
 
@@ -239,8 +249,9 @@ nothing has been timed inside Resolume.
 
 ## If it looks wrong
 
-- **Nothing happens.** Something has to trigger. Under Onsets with Resolume FFT, try Beat or
-  Manual first (see [Known limits](#known-limits)).
+- **Nothing happens.** Something has to trigger. Under Onsets with Resolume FFT, check that
+  music is playing where Resolume's **Audio** setting listens (a demo `.mov` clip has no sound;
+  play its `.wav`), or try Beat or Manual.
 - **I moved a slider and nothing changed.** Drop Size, Drop Rate, Tine Spacing, Depth and Speed
   shape the next trigger's drops and strokes. Trigger once.
 - **The triggers stopped doing anything.** The pattern has finished and Auto Paper is waiting
@@ -262,13 +273,9 @@ nothing has been timed inside Resolume.
 - **Tried in Resolume on a test card only.** It loads and draws in Resolume Arena 7.29.0 on a
   Mac and Arena 7.27.1 on Windows, the Windows one on Mesa's software renderer, not a graphics
   card's driver. Nobody has run a show through it yet.
-- **Onsets on Resolume's FFT gave nothing in Arena on a Mac.** With Resolume's demo clip Beat
-  001 playing on the layer below, the default trigger never fired, and the fleet's VU meter
-  (SW Needle), reading the same FFT, didn't move either; another plugin on the same input saw
-  the same. The cause wasn't found, and Resolume's audio settings weren't changed to look for
-  it. Onsets fed the same way the plugin feeds a device do fire offline. Until this is
-  settled, use **Beat** or **Manual**, or try a device as the Audio Input (also not yet tried
-  in Resolume).
+- **Onsets on Resolume's FFT have been tried on one drum loop.** In Arena on a Mac, Resolume's
+  demo `Beat 001.wav` on the layer below fired them; no full mix has been played to it there,
+  and a device as the Audio Input hasn't been tried in Resolume.
 - **Resolume's FFT onsets are coarser than a device's**: Resolume's analysis arrives once a
   frame and isn't calibrated, so the timing of a hit is only as fine as the frame rate.
 - **How long a finished pattern shows** is one trigger's interval at least: on fast onsets

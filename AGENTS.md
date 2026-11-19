@@ -16,8 +16,8 @@ two DXV alpha clips through `--pipe`, the pipe, 20 of 20 negative controls, 27 o
 disabled. **Loaded into Resolume Arena 7.29.0 on a Mac (REST and the composition monitor, a
 test card) and 7.27.1 on Windows (plugin-bench's gate, 9 passed, 0 failed, 2 skipped) on
 2026-11-18; README's Status has the readings. No live audio device ever opened.** Onsets on
-Resolume's FFT never fired in Arena on the Mac, and SW Needle on the same FFT didn't move either
-(open question 8). The DLL is built by CI (MSVC, clean on the first compile of marbling and
+Resolume's FFT fire in Arena on the Mac with `Beat 001.wav` playing below (re-tested 2026-11-19;
+the first run's `Beat 001.mov` has no audio stream: open question 8, settled). The DLL is built by CI (MSVC, clean on the first compile of marbling and
 earshot). earshot is a snapshot of `github.com/stoatworks-labs/earshot` at `8124191`,
 unpatched.
 
@@ -301,12 +301,12 @@ block.
    (compose a new drop before the moving strokes), but it breaks "ops in trigger order".
 6. **Antialiasing**: edges are pixel-sharp. [Lu]'s 2×2 RGSS would cost four traces a pixel.
 7. **MA02**, the source version (a bath of the plugin's own colours): held, not built.
-8. **Resolume's FFT in Arena on this Mac gave nothing** (2026-11-18): Beat 001.mov playing on
-   the layer below, transport running, no onset in 12 s; SW Needle v0.1.2's VU on the same
-   "Composition" buffer didn't move, and woofer's cone didn't either. Arena's audio settings
-   (output NDI Audio, an input with 0 channels) were not changed to chase it. Whether the
-   FFGL buffer is empty there, or Resolume's FFT needs an input device, is open; `matest
-   --silent` covers the empty-buffer case (no triggers, no crash).
+8. **Settled 2026-11-19: Resolume's FFT does reach the plugin.** The 2026-11-18 run played
+   `Beat 001.mov`, which has no audio stream (Arena's demo clips keep their sound in the
+   `.wav`s), so the buffer was silent. With `Beat 001.wav` on the layer below and the Audio
+   buffer on Composition, Onsets fired (39 of 39 snapshot pairs over 8.5 s changed; none at
+   rest, on Local over the card or on External). Arena's audio settings were left as they were.
+   `matest --silent` still covers the empty-buffer case (no triggers, no crash).
 
 ## Browser demo
 

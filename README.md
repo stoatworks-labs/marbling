@@ -4,8 +4,8 @@
 > (Anthropic), directed and reviewed by a human author. It has been loaded into **Resolume
 > Arena 7.29.0 on a Mac and 7.27.1 on Windows**, over a test card only, where it registers,
 > draws, and on the Mac answers its buttons, the Beat trigger and every control as the harness
-> says; **Onsets on Resolume's own FFT never fired there**, and it has never opened a live audio
-> device (see [Status](#status)). The rest is established
+> says, and **Onsets on Resolume's own FFT fire there with a demo drum loop playing**; it has
+> never opened a live audio device (see [Status](#status)). The rest is established
 > by an offline harness, `matest`, that drives the real plugin class through the same
 > `ProcessOpenGL` a host calls, in a headless GL context on a synthetic clock, on this Mac's GPU
 > at 1280x720 and 320x180 and on Apple's software renderer, and feeds it audio through the same
@@ -167,11 +167,17 @@ added to its clip, the layer removed afterwards and nothing saved.
   drops; with it off, the drops started again on top; Nonpareil combed. Mix 0 and Arena's
   Opacity 0 were 0.0 from the bare card.
 - **Beat** on Arena's clock: 25 of 29 snapshots in six seconds changed.
-- **Onsets on Resolume's FFT never fired.** With Arena's own demo clip Beat 001 playing on the
-  layer below (its transport running), the default trigger gave nothing in twelve seconds. SW
-  Needle v0.1.2, the fleet's VU meter, read the same "Composition" FFT on the same setup and
-  didn't move either, and woofer's agent saw the same on this Mac. So Resolume's FFT reached no
-  plugin here; why wasn't found, and Arena's audio settings were left as they were.
+- **Onsets on Resolume's FFT fire.** That first check played `Beat 001.mov` on the layer below
+  and the default trigger gave nothing in twelve seconds, because Arena's demo `.mov` clips are
+  picture only: their sound is in the matching `.wav` files. Re-tested on 19 November 2026 with
+  the v0.1.0 release's own bundle, Trigger On at Onsets, Audio Input on Resolume FFT, the Audio
+  buffer on Composition and `Beat 001.wav` playing on the layer below: the loop's hits dropped
+  ink and the strokes ran, every one of 39 snapshot pairs over 8.5 s changing (by 22 levels on
+  average), where with nothing playing, and once the loop was cleared, no pair changed.
+  **Arena's Audio setting decides what it hears:** on Local (only the test card, which has no
+  sound) and on External (Arena's own audio input) nothing triggered, 0 of 14 and 0 of 24
+  pairs, and back on Composition the drops started again. Arena's audio settings were left as
+  they were.
 - On launch the plugin listed 11 audio inputs (the menu is filled on the first frame under
   Onsets) and opened none. No microphone prompt appeared. Arena's Quit dialog was answered
   Quit, and every composition file's modified time was unchanged.
@@ -242,9 +248,9 @@ AGENTS.md has them all.
   compressing a surfactant film. No feathering, no ink sinking, no colour mixing at an edge.
 - A stroke still moving does not drag a drop that falls during it (the later op is composed
   after it).
-- **Onsets on Resolume's FFT in a host.** It never fired in Arena on a Mac (above), and nothing
-  else on that input moved either. Offline, earshot's host fallback is frame-quantised and
-  uncalibrated.
+- **Onsets on Resolume's FFT on a real mix.** They fire in Arena on a Mac with a demo drum loop
+  (above); nothing else has been played to it there. Offline, earshot's host fallback is
+  frame-quantised and uncalibrated.
 - **A live audio device.** Never opened: the device path is earshot's, tested there on a
   scripted backend.
 - **How long a finished pattern should show.** Auto Paper waits for the last stroke, then lays
