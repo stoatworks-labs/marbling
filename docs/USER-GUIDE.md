@@ -152,7 +152,8 @@ Only used under **Onsets**.
   (40–160 Hz) hears its part of the lowest step and fires on kicks there. In v0.1.0 it never
   fired on Resolume's FFT and kicks came through the 160–640 Hz band instead, so the pattern
   moved then too, and about as often: on a kick the two bands fire together and count as one
-  trigger, and with Arena's demo loops the number of triggers changed by a few per cent.
+  trigger, and with Arena's demo loops the number of triggers changed by no more than it
+  does from one run to the next.
 - **System default**: your computer's default input, opened by the plugin.
 - **A device by name**: the inputs the plugin found when Onsets was first used. The
   composition remembers the device's name, not its place in the list, so it finds the same

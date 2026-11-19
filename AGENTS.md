@@ -53,12 +53,14 @@ bin 0.
   trigger of its own only where the low end moves without the rest (a bass note, a low tom):
   offline, `Beat 001.wav` made into Arena's bins gives 7.50 triggers a second against 6.75
   (+11%), `Bass 001.wav` 5.92 against 5.68 (+4%) (`matest --hostwav`).
-- **In Arena 7.29.0 on this Mac** (2026-11-19, the pre-tag bundle against a v0.1.0 build with
-  only the 30-s log line added, the "tally" instrument, same probe): per whole 30-s window,
-  `Beat 001.wav` gave 252/256 triggers (lowest band 161/176) against v0.1.0's 239/250 (lowest
-  band 0), `Bass 001.wav` 208-212 (lowest 96-99) against 214-215 (0). So +4% and -2%: smaller
-  than the model's, and Arena's own counts run about 1 a second above the model's on both
-  loops. Snapshot pairs saturate (40 of 40 for both versions on both loops), so they can't
+- **In Arena 7.29.0 on this Mac** (2026-11-19: the pre-tag bundle, then the release's own
+  notarised bundle, against a v0.1.0 build with only the 30-s log line added, the "tally"
+  instrument, same probe): per whole 30-s window, `Beat 001.wav` gave 252/256 and 234/225
+  triggers (lowest band 161/176 and 143/128) against v0.1.0's 239/250 (lowest band 0);
+  `Bass 001.wav` 208-212 and 200-213 (lowest 91-99) against 214-215 (0). The versions differ
+  by less than two v0.1.1 runs differ from each other (Arena's frame timing), so triggers did
+  not measurably change; the model's +11%/+4% did not show. Arena's counts run about 1 a
+  second above the model's on both loops. Snapshot pairs saturate (40 of 40 for both versions on both loops), so they can't
   tell the versions apart; the log line can.
 - **The log.** Every 30 s in which anything triggered, the plugin logs onsets per band and the
   triggers they made ("onsets in 30 s (Resolume FFT): 40-160 Hz N, ..."), so a host run reads

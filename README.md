@@ -39,15 +39,15 @@ harness's colour card, 4.9 s into the harness's music at the defaults (`--frames
 
 ## Download
 
-**[v0.1.0](https://github.com/stoatworks-labs/marbling/releases/tag/v0.1.0)** — prebuilt for macOS and Windows. Pick your platform:
+**[v0.1.1](https://github.com/stoatworks-labs/marbling/releases/tag/v0.1.1)** — prebuilt for macOS and Windows. Pick your platform:
 
 <details>
 <summary><b>macOS</b> — Universal (Apple Silicon + Intel)</summary>
 
 | Build | Download | Size |
 | --- | --- | --- |
-| Universal (Apple Silicon + Intel) · .dmg disk image | [`marbling-0.1.0-macos-universal.dmg`](https://github.com/stoatworks-labs/marbling/releases/download/v0.1.0/marbling-0.1.0-macos-universal.dmg) | 583 KB |
-| Universal (Apple Silicon + Intel) · .zip archive | [`marbling-macos-universal.zip`](https://github.com/stoatworks-labs/marbling/releases/latest/download/marbling-macos-universal.zip) | 520 KB |
+| Universal (Apple Silicon + Intel) · .dmg disk image | [`marbling-0.1.1-macos-universal.dmg`](https://github.com/stoatworks-labs/marbling/releases/download/v0.1.1/marbling-0.1.1-macos-universal.dmg) | 592 KB |
+| Universal (Apple Silicon + Intel) · .zip archive | [`marbling-macos-universal.zip`](https://github.com/stoatworks-labs/marbling/releases/latest/download/marbling-macos-universal.zip) | 525 KB |
 
 </details>
 
@@ -56,8 +56,8 @@ harness's colour card, 4.9 s into the harness's music at the defaults (`--frames
 
 | Build | Download | Size |
 | --- | --- | --- |
-| x64 · .exe installer | [`marbling-0.1.0-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/marbling/releases/download/v0.1.0/marbling-0.1.0-windows-x86_64-setup.exe) | 356 KB |
-| x64 · .zip archive | [`marbling-windows-x86_64.zip`](https://github.com/stoatworks-labs/marbling/releases/latest/download/marbling-windows-x86_64.zip) | 245 KB |
+| x64 · .exe installer | [`marbling-0.1.1-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/marbling/releases/download/v0.1.1/marbling-0.1.1-windows-x86_64-setup.exe) | 362 KB |
+| x64 · .zip archive | [`marbling-windows-x86_64.zip`](https://github.com/stoatworks-labs/marbling/releases/latest/download/marbling-windows-x86_64.zip) | 249 KB |
 
 </details>
 
@@ -183,23 +183,24 @@ added to its clip, the layer removed afterwards and nothing saved.
   sound) and on External (Arena's own audio input) nothing triggered, 0 of 14 and 0 of 24
   pairs, and back on Composition the drops started again. Arena's audio settings were left as
   they were.
-- **Onsets on Resolume's FFT, v0.1.1** (19 November 2026, a universal bundle built from the
-  v0.1.1 source before the tag, on a new composition with an opaque card, the Audio buffer on
-  Composition, Arena's demo loops on the layer below; nothing saved). It registered with the
-  same parameters and defaults, the About line reading "Marbling v0.1.1 - MIT - Stoatworks Labs,
-  stoatworks-labs.com", and its log reads "host audio at 48000 Hz: Resolume's FFT bins are 375 Hz
-  each". **The lowest band, 40–160 Hz, now fires there**: in the plugin's 30-second log windows
-  with `Beat 001.wav` playing throughout, 161 and 176 times, and with `Bass 001.wav` 96 to 99
-  times. v0.1.0's own source, built with only that log line added and run the same way, fired
-  it 0 times in every window, the rest of its bands as before. **Triggers barely changed**:
-  252 and 256 a window on `Beat 001.wav` against v0.1.0's 239 and 250 (4% more), and 208 to 212
-  on `Bass 001.wav` against 214 to 215 (2% fewer), since on a kick the new band fires with
-  160–640 Hz and is merged into the same trigger. Both versions changed the picture in 40 of 40
-  snapshot pairs on each loop; both were still before the loops, after each (0 of 24 pairs) and
-  under Manual without a press (0 of 9). v0.1.1 again triggered nothing on Local or External
-  (0 of 24 pairs each) and started again back on Composition (14 of 14); Beat moved 22 of 24
-  pairs, and one Trigger press under Manual changed 36% of the frame within a second. The
-  composition files' modified times and Arena's preferences were unchanged.
+- **Onsets on Resolume's FFT, v0.1.1** (19 November 2026, the v0.1.1 release's own universal
+  bundle from its zip, Developer ID-signed and notarised, on a new composition with an opaque
+  card, the Audio buffer on Composition, Arena's demo loops on the layer below; nothing saved).
+  It registered with the same parameters and defaults, the About line reading "Marbling v0.1.1 -
+  MIT - Stoatworks Labs, stoatworks-labs.com", and its log reads "host audio at 48000 Hz:
+  Resolume's FFT bins are 375 Hz each". **The lowest band, 40–160 Hz, now fires there**: in the
+  plugin's 30-second log windows with `Beat 001.wav` playing throughout, 143 and 128 times, and
+  with `Bass 001.wav` 91 to 98 times. A bundle built from the same source before the tag gave
+  161 and 176, and 96 to 99. v0.1.0's own source, built with only that log line added and run
+  the same way, fired it 0 times in every window, its other bands as before. **Triggers did not
+  change beyond the spread between runs**: 225 to 256 a window on `Beat 001.wav` over the two
+  v0.1.1 runs against v0.1.0's 239 and 250, and 200 to 213 on `Bass 001.wav` against 214 to 215,
+  since on a kick the new band fires with 160–640 Hz and is merged into the same trigger. Every
+  run changed the picture in 40 of 40 snapshot pairs on each loop and was still before the
+  loops, after each (0 of 24 pairs) and under Manual without a press (0 of 9). v0.1.1 triggered
+  nothing on Local or External (0 of 24 pairs each) and started again back on Composition (14
+  of 14); Beat moved 24 of 24 pairs, and one Trigger press under Manual changed 69% of the frame
+  within a second. The composition files' modified times and Arena's preferences were unchanged.
 - On launch the plugin listed 11 audio inputs (the menu is filled on the first frame under
   Onsets) and opened none. No microphone prompt appeared. Arena's Quit dialog was answered
   Quit, and every composition file's modified time was unchanged.
@@ -207,7 +208,8 @@ added to its clip, the layer removed afterwards and nothing saved.
 **On Windows** (Arena 7.27.1 on win-lab, Mesa's llvmpipe, no GPU, no sound device, 18 November
 2026), through plugin-bench's Arena gate, twice: with the DLL from a build dispatched before the
 tag, and with the DLL from v0.1.0's own release zip (the same source; the two DLLs differ in
-hash): **9 passed, 0 failed, 2 skipped** both times. It loads and registers as `SW Marbling` / `MA01`, all
+hash): **9 passed, 0 failed, 2 skipped** both times, and again with the DLL from v0.1.1's own
+release zip (19 November 2026). It loads and registers as `SW Marbling` / `MA01`, all
 19 parameters (Arena's Opacity first) match name, order, type, range and default, the two
 16-character names arrive whole, and it renders. At the defaults it is the identity there too
 (0 pixels from its bare input). The gate can't press a button, so Trigger and Paper were
