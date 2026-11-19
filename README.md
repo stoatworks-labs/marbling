@@ -183,6 +183,23 @@ added to its clip, the layer removed afterwards and nothing saved.
   sound) and on External (Arena's own audio input) nothing triggered, 0 of 14 and 0 of 24
   pairs, and back on Composition the drops started again. Arena's audio settings were left as
   they were.
+- **Onsets on Resolume's FFT, v0.1.1** (19 November 2026, a universal bundle built from the
+  v0.1.1 source before the tag, on a new composition with an opaque card, the Audio buffer on
+  Composition, Arena's demo loops on the layer below; nothing saved). It registered with the
+  same parameters and defaults, the About line reading "Marbling v0.1.1 - MIT - Stoatworks Labs,
+  stoatworks-labs.com", and its log reads "host audio at 48000 Hz: Resolume's FFT bins are 375 Hz
+  each". **The lowest band, 40–160 Hz, now fires there**: in the plugin's 30-second log windows
+  with `Beat 001.wav` playing throughout, 161 and 176 times, and with `Bass 001.wav` 96 to 99
+  times. v0.1.0's own source, built with only that log line added and run the same way, fired
+  it 0 times in every window, the rest of its bands as before. **Triggers barely changed**:
+  252 and 256 a window on `Beat 001.wav` against v0.1.0's 239 and 250 (4% more), and 208 to 212
+  on `Bass 001.wav` against 214 to 215 (2% fewer), since on a kick the new band fires with
+  160–640 Hz and is merged into the same trigger. Both versions changed the picture in 40 of 40
+  snapshot pairs on each loop; both were still before the loops, after each (0 of 24 pairs) and
+  under Manual without a press (0 of 9). v0.1.1 again triggered nothing on Local or External
+  (0 of 24 pairs each) and started again back on Composition (14 of 14); Beat moved 22 of 24
+  pairs, and one Trigger press under Manual changed 36% of the frame within a second. The
+  composition files' modified times and Arena's preferences were unchanged.
 - On launch the plugin listed 11 audio inputs (the menu is filled on the first frame under
   Onsets) and opened none. No microphone prompt appeared. Arena's Quit dialog was answered
   Quit, and every composition file's modified time was unchanged.
@@ -240,7 +257,9 @@ AGENTS.md has them all.
   triggered once each and the lowest band never on its own; over a held 49 Hz bass no kick was
   missed. Against v0.1.0's earshot the lowest band fires on none of the kicks, and the check
   fails. `Beat 001.wav` made into those bins for 60 s (`--hostwav`): 7.50 triggers a second
-  against v0.1.0's 6.75; `Bass 001.wav` 5.92 against 5.68. On a kick the new band fires with
+  against v0.1.0's 6.75; `Bass 001.wav` 5.92 against 5.68. Arena itself gave more triggers on
+  both loops and less difference between the versions (above): the model is of the bins'
+  layout, not of everything Arena does to them. On a kick the new band fires with
   160–640 Hz and is merged into the same trigger, so the extra triggers come where the low end
   moves alone. A hit can trigger twice, 50 ms apart, when its attack reaches 640–2560 Hz one
   host update before its low end (4 of 10 kicks at 48 kHz, 0 at 44.1 kHz; v0.1.0 does it too).

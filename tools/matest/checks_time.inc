@@ -901,6 +901,47 @@ int runHostFft( const Perturb& perturb )
 		const double hostRate = rig.plugin.AudioForTest().HostRateForTest();
 		Check( std::fabs( hostRate - 48000.0 ) < 1e-9, fmt( "a host rate of 0: earshot keeps %.0f Hz (want 48000)", hostRate ) );
 	}
+	//The rate and every control in the same frame, then a new rate mid-run
+	//with every control again and Trigger On away and back. earshot's
+	//configure() takes effect at the next update(), and a second configure()
+	//before it replaces the first (eidophone's trap): the plugin configures
+	//earshot in one place only, the rate (Audio Input is selectDevice, the
+	//bands are fixed), so no control can drop it.
+	{
+		const Raster raster = kRasters.back();
+		Rig rig;
+		if( !startRig( rig, raster.w, raster.h, perturb ) )
+			return 1;
+		auto everyControl = [ &rig ]( int k ) {
+			rig.Set( PT_PATTERN, static_cast< float >( k % 7 ) );
+			rig.Set( PT_INPUT, k % 2 ? earshot::deviceKey( earshot::kDefaultDevice ) : 0.0f );
+			rig.Set( PT_TRIGGER, 1.0f );
+			rig.Set( PT_PAPER, 1.0f );
+			rig.Set( PT_AUTO_PAPER, static_cast< float >( k % 2 ) );
+			for( unsigned int id : { PT_DROP_SIZE, PT_DROP_RATE, PT_SPACING, PT_DEPTH, PT_SPEED, PT_MIX } )
+				rig.Set( id, k % 2 ? 0.9f : 0.1f );
+		};
+		rig.Set( PT_TRIGGER_ON, static_cast< float >( TriggerOn::Onsets ) );
+		rig.plugin.SetSampleRate( 44100u );
+		everyControl( 1 );
+		bool rendered = rig.Render( 1 );
+		const double first = rig.plugin.AudioForTest().HostRateForTest();
+		rig.Set( PT_TRIGGER, 0.0f );
+		rig.Set( PT_PAPER, 0.0f );
+		rendered = rendered && rig.Render( 3 );
+		rig.plugin.SetSampleRate( 96000u );
+		everyControl( 2 );
+		rig.Set( PT_TRIGGER_ON, static_cast< float >( TriggerOn::Beat ) );
+		rendered = rendered && rig.Render( 1 );
+		rig.Set( PT_TRIGGER_ON, static_cast< float >( TriggerOn::Onsets ) );
+		everyControl( 3 );
+		rendered = rendered && rig.Render( 3 );
+		if( !rendered )
+			return 1;
+		const double later = rig.plugin.AudioForTest().HostRateForTest();
+		Check( std::fabs( first - 44100.0 ) < 1e-9 && std::fabs( later - 96000.0 ) < 1e-9,
+		       fmt( "the rate and every control in one frame: earshot reads %.0f Hz (want 44100); a new rate with every control and Trigger On away and back: %.0f Hz (want 96000)", first, later ) );
+	}
 	return Verdict();
 }
 

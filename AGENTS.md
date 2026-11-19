@@ -41,12 +41,25 @@ bin 0.
   initialised, so the plugin keeps an atomic) stores it; the render thread hands it to
   `AudioInput::SetHostRate`, which reconfigures earshot's `hostBins.sampleRate` and logs "host
   audio at N Hz: Resolume's FFT bins are N/128 Hz each" once per change. 0 or a rate outside
-  8 kHz-768 kHz keeps the default (48 kHz).
+  8 kHz-768 kHz keeps the default (48 kHz). It is the plugin's only `configure()` (Audio
+  Input is `selectDevice`, the bands are fixed), which matters: earshot applies a
+  `configure()` at the next `update()`, and a second one before then replaces the first
+  (eidophone's trap, where a control's configure undid the rate's). `--hostfft` sets the rate
+  and every control in one frame, then a new rate with every control and Trigger On away and
+  back, and reads the rate back each time. Configure earshot anywhere else and build that
+  Config from one place that carries the rate.
 - **What changed on screen.** On a kick the lowest band fires in the same frame as 160-640 Hz
   and the 50 ms merge makes them one trigger, so kicks trigger as before. The new band adds a
   trigger of its own only where the low end moves without the rest (a bass note, a low tom):
   offline, `Beat 001.wav` made into Arena's bins gives 7.50 triggers a second against 6.75
   (+11%), `Bass 001.wav` 5.92 against 5.68 (+4%) (`matest --hostwav`).
+- **In Arena 7.29.0 on this Mac** (2026-11-19, the pre-tag bundle against a v0.1.0 build with
+  only the 30-s log line added, the "tally" instrument, same probe): per whole 30-s window,
+  `Beat 001.wav` gave 252/256 triggers (lowest band 161/176) against v0.1.0's 239/250 (lowest
+  band 0), `Bass 001.wav` 208-212 (lowest 96-99) against 214-215 (0). So +4% and -2%: smaller
+  than the model's, and Arena's own counts run about 1 a second above the model's on both
+  loops. Snapshot pairs saturate (40 of 40 for both versions on both loops), so they can't
+  tell the versions apart; the log line can.
 - **The log.** Every 30 s in which anything triggered, the plugin logs onsets per band and the
   triggers they made ("onsets in 30 s (Resolume FFT): 40-160 Hz N, ..."), so a host run reads
   which bands fire without a harness.

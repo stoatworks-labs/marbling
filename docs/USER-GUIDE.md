@@ -151,8 +151,8 @@ Only used under **Onsets**.
   375 Hz; from v0.1.1 the plugin shares each step among the bands it overlaps, so the kick band
   (40–160 Hz) hears its part of the lowest step and fires on kicks there. In v0.1.0 it never
   fired on Resolume's FFT and kicks came through the 160–640 Hz band instead, so the pattern
-  moved then too; v0.1.1 adds triggers mainly where the low end moves on its own (a bass note,
-  a low tom).
+  moved then too, and about as often: on a kick the two bands fire together and count as one
+  trigger, and with Arena's demo loops the number of triggers changed by a few per cent.
 - **System default**: your computer's default input, opened by the plugin.
 - **A device by name**: the inputs the plugin found when Onsets was first used. The
   composition remembers the device's name, not its place in the list, so it finds the same
@@ -280,9 +280,11 @@ nothing has been timed inside Resolume.
 - **Tried in Resolume on a test card only.** It loads and draws in Resolume Arena 7.29.0 on a
   Mac and Arena 7.27.1 on Windows, the Windows one on Mesa's software renderer, not a graphics
   card's driver. Nobody has run a show through it yet.
-- **Onsets on Resolume's FFT have been tried on one drum loop.** In Arena on a Mac, Resolume's
-  demo `Beat 001.wav` on the layer below fired them; no full mix has been played to it there,
-  and a device as the Audio Input hasn't been tried in Resolume.
+- **Onsets on Resolume's FFT have been tried on two demo loops.** In Arena on a Mac, Resolume's
+  demo `Beat 001.wav` and `Bass 001.wav` on the layer below fired them, and from v0.1.1 the kick
+  band fires there too (about five times a second on `Beat 001.wav`), with about as many
+  triggers as before; no full mix has been played to it there, and a device as the Audio Input
+  hasn't been tried in Resolume.
 - **Resolume's FFT onsets are coarser than a device's**: Resolume's analysis is refreshed about
   every 43 ms (in Arena 7.29.0) and isn't calibrated, so a hit lands up to about two refreshes
   and a frame late. Its lowest bin holds everything from 0 to 375 Hz, so a bass note can fire
