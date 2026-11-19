@@ -44,6 +44,7 @@
 #include <chrono>
 #include <climits>
 #include <cmath>
+#include <complex>
 #include <csignal>
 #include <cstdarg>
 #include <cstdint>
@@ -963,6 +964,8 @@ int main( int argc, char** argv )
 			             "  --at N \"Name=V\"  (with --out) set it at frame N instead; an event is released the frame after\n"
 			             "  --silent          feed no music (default: the harness's kicks and hats through earshot's feed())\n"
 			             "  --wav PATH        feed this WAV's music instead, looped, through earshot's feed()\n"
+			             "  --hostwav         (with --wav) not a check: the WAV made into Arena's 64 FFT bins, --frames at 60 fps,\n"
+			             "                    onsets by band and triggers under v0.1.1's earshot and v0.1.0's\n"
 			             "  --beat BPM        the host's beat: SetBeatInfo every frame (Trigger On = Beat to use it)\n"
 			             "  --list            every parameter and its default\n"
 			             "  --pipe            raw RGBA frames in on stdin, out on stdout\n"
@@ -1102,6 +1105,8 @@ int main( int argc, char** argv )
 		result = runNegative( false, mode.substr( 12 ) );
 	else if( mode == "bench" )
 		result = runBench();
+	else if( mode == "hostwav" )
+		result = runHostWav( frames / 60.0 );
 	else if( mode == "all" )
 		result = runAll();
 	else if( !mode.empty() )

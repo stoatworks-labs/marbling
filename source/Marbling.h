@@ -10,6 +10,7 @@
 
 #include "StoatworksAboutParams.h"
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
@@ -25,7 +26,10 @@ enum CpuHook : int
 	kCpuIgnorePaper   = 1 << 3,///< Paper does nothing
 	kCpuIgnoreGate    = 1 << 4,///< the device menu listed and Audio Input applied whatever Trigger On says
 	kCpuNoBake        = 1 << 5,///< nothing is ever baked: ops pile up past what the shader traces
-	kCpuLeakState     = 1 << 6 ///< the display pass leaves its program and textures bound
+	kCpuLeakState     = 1 << 6,///< the display pass leaves its program and textures bound
+	kCpuIgnoreHostRate = 1 << 7,///< the host's sample rate never reaches earshot's host-bin law
+	kCpuHostCentreOnly = 1 << 8,///< each host bin filed whole under the band holding its centre (earshot 8124191's rule)
+	kCpuNoMerge        = 1 << 9 ///< every band's onset a trigger of its own, none merged
 };
 
 struct TriggerRecord
@@ -66,6 +70,9 @@ public:
 	FFResult SetTextParameter( unsigned int index, const char* value ) override;
 	FFResult SetTime( double time ) override;
 	void SetBeatInfo( float bpm, float barPhase ) override;
+	/// The host's audio engine rate: the axis of its FFT buffer (earshot's
+	/// AGENTS.md, "Resolume's 64 bins, measured"). Arena sends 48000.
+	void SetSampleRate( unsigned int rate ) override;
 
 	int HostIndexOf( unsigned int id ) const
 	{
@@ -151,6 +158,14 @@ private:
 	int64_t lastOnsetUs   = INT64_MIN / 2;
 	uint32_t lastOnsetCount[ earshot::kMaxBands ] = {};
 	bool onsetsPrimed = false;
+	/// SetSampleRate's, 0 until the host sends one. Atomic: a host may call
+	/// SetSampleRate from another thread than the frame's.
+	std::atomic< unsigned int > hostRate { 0 };
+	/// Onsets by band and the triggers they made, for the log's line every
+	/// 30 s (kOnsetLogUs) of the plugin's clock under Onsets.
+	uint32_t onsetTally[ earshot::kMaxBands ] = {};
+	int triggerTally    = 0;
+	int64_t tallyFromUs = INT64_MIN;
 
 	//The beat (ferrofluid's): the host's bar phase, or a clock of our own.
 	float bpm            = 120.0f;

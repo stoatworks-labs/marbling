@@ -29,6 +29,9 @@ constexpr int kBins = 64;
 constexpr int kMaxBeatsPerFrame = 8;
 /// The most new ops one trigger can make (French Curl's 12 vortices).
 constexpr int kMaxOpsPerTrigger = 12;
+/// Under Onsets, a log line of the onsets by band every this many seconds of
+/// the plugin's clock (none when nothing fired).
+constexpr int64_t kOnsetLogUs = 30000000;
 
 double wallSeconds()
 {
@@ -226,6 +229,12 @@ void MarblingPlugin::SetBeatInfo( float newBpm, float newBarPhase )
 		barPhase = newBarPhase - std::floor( newBarPhase );
 }
 
+void MarblingPlugin::SetSampleRate( unsigned int rate )
+{
+	CFFGLPlugin::SetSampleRate( rate );
+	hostRate.store( rate, std::memory_order_relaxed );
+}
+
 Settings MarblingPlugin::CurrentSettings( double aspect ) const
 {
 	Settings s;
@@ -259,6 +268,12 @@ void MarblingPlugin::handleOnsets( int64_t frameStartUs, int64_t frameUs )
 		refreshMenu();
 	audio.Want( params[ PT_INPUT ] );
 	audio.Apply();
+	//Resolume's 64 bins are linear to half the host's audio engine rate, 375 Hz
+	//each at 48 kHz, and earshot shares each between the bands it overlaps
+	//(earshot 0.1.1). Until the host sends a rate, earshot's 48 kHz.
+	if( !( cpuHooks & kCpuIgnoreHostRate ) )
+		audio.SetHostRate( hostRate.load( std::memory_order_relaxed ) );
+	audio.SetHostCentreOnlyForTest( ( cpuHooks & kCpuHostCentreOnly ) != 0 );
 	float bins[ kBins ] = {};
 	int binCount        = 0;
 	if( const ParamInfo* info = FindParamInfo( PT_AUDIO ) )
@@ -275,6 +290,7 @@ void MarblingPlugin::handleOnsets( int64_t frameStartUs, int64_t frameUs )
 		//The first frame primes: counts already standing are not onsets.
 		if( onsetsPrimed && band.onsetCount != lastOnsetCount[ b ] )
 		{
+			onsetTally[ b ] += band.onsetCount - lastOnsetCount[ b ];
 			int64_t at = frameUs;
 			if( f.source != earshot::Source::Host && !( cpuHooks & kCpuEventsAtFrame ) && band.lastOnsetTime >= 0.0 )
 				at = frameUs - std::llround( ( f.audioTime - band.lastOnsetTime ) * 1e6 );
@@ -285,11 +301,33 @@ void MarblingPlugin::handleOnsets( int64_t frameStartUs, int64_t frameUs )
 	onsetsPrimed = true;
 	std::sort( times.begin(), times.end() );
 	for( int64_t t : times )
-		if( t - lastOnsetUs >= std::llround( kOnsetMerge * 1e6 ) )
+		if( t - lastOnsetUs >= std::llround( kOnsetMerge * 1e6 ) || ( cpuHooks & kCpuNoMerge ) )
 		{
 			deferred.push_back( t );
 			lastOnsetUs = t;
+			++triggerTally;
 		}
+
+	//What Onsets heard, for the log: which bands fired and how many triggers
+	//they made, so a user can see the plugin hears the music.
+	if( tallyFromUs == INT64_MIN )
+		tallyFromUs = frameUs;
+	else if( frameUs - tallyFromUs >= kOnsetLogUs )
+	{
+		if( triggerTally > 0 )
+		{
+			std::string line = "onsets in " + std::to_string( ( frameUs - tallyFromUs ) / 1000000 ) + " s ("
+			                   + ( f.source == earshot::Source::Host ? std::string( "Resolume FFT" ) : std::string( "device" ) ) + "):";
+			for( int b = 0; b < f.bandCount && b < earshot::kMaxBands; ++b )
+				line += ( b == 0 ? " " : ", " ) + std::to_string( std::lround( f.bands[ b ].loHz ) ) + "-"
+				        + std::to_string( std::lround( f.bands[ b ].hiHz ) ) + " Hz " + std::to_string( onsetTally[ b ] );
+			diag::info( line + "; " + std::to_string( triggerTally ) + " triggers" );
+		}
+		for( uint32_t& n : onsetTally )
+			n = 0;
+		triggerTally = 0;
+		tallyFromUs  = frameUs;
+	}
 }
 
 void MarblingPlugin::gatherEvents( int64_t frameStartUs, int64_t frameUs, double aspect )

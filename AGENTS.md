@@ -7,6 +7,11 @@ built section records where this repo departs from it).
 
 ## Status
 
+**v0.1.1, 2026-11-19: earshot `02306da` and the host's sample rate, so the lowest onset band
+(40-160 Hz) fires on Resolume's FFT** (next section). Nothing else changed: no control, default
+or id, and the audio-input path renders bit for bit as v0.1.0's. verify.sh passes with
+`--hostfft` added and 23 of 23 negative controls. The rest of this section is v0.1.0's.
+
 **v0.1.0, 2026-11-17; public at `github.com/stoatworks-labs/marbling` from 2026-11-18.**
 `OXBOW=… tools/verify.sh` passes on this Mac (Apple
 Silicon, macOS 26) against a fresh universal Release build: every check at 1280x720 and
@@ -18,8 +23,37 @@ test card) and 7.27.1 on Windows (plugin-bench's gate, 9 passed, 0 failed, 2 ski
 2026-11-18; README's Status has the readings. No live audio device ever opened.** Onsets on
 Resolume's FFT fire in Arena on the Mac with `Beat 001.wav` playing below (re-tested 2026-11-19;
 the first run's `Beat 001.mov` has no audio stream: open question 8, settled). The DLL is built by CI (MSVC, clean on the first compile of marbling and
-earshot). earshot is a snapshot of `github.com/stoatworks-labs/earshot` at `8124191`,
-unpatched.
+earshot). earshot is a snapshot of `github.com/stoatworks-labs/earshot` at `02306da`
+(v0.1.0: `8124191`), unpatched.
+
+## Resolume's FFT (v0.1.1)
+
+Arena 7.29.0 was measured on this Mac on 2026-11-19 (snowglobe's agent, SW Hostprobe): its 64
+bins are linear, 375 Hz each over 0-24 kHz (the 48 kHz engine rate, also for a 44.1 kHz clip),
+magnitude, mono (L+R)/2, a new spectrum about every 43 ms. earshot `8124191` read them as linear
+to 22.05 kHz and gave each bin whole to the band holding its centre: bin 0's centre, 172 Hz, is
+above 160 Hz, so Marbling's lowest band (40-160 Hz) got no bin and never fired there, and every
+kick triggered through 160-640 Hz. `02306da` shares each bin among the bands it overlaps (energy
+f·m², level f·m, flux f·rise) and defaults to the measured law; the lowest band gets 0.32 of
+bin 0.
+
+- **The rate.** `Marbling::SetSampleRate` (FFGL; the SDK's own `sampleRate` member is never
+  initialised, so the plugin keeps an atomic) stores it; the render thread hands it to
+  `AudioInput::SetHostRate`, which reconfigures earshot's `hostBins.sampleRate` and logs "host
+  audio at N Hz: Resolume's FFT bins are N/128 Hz each" once per change. 0 or a rate outside
+  8 kHz-768 kHz keeps the default (48 kHz).
+- **What changed on screen.** On a kick the lowest band fires in the same frame as 160-640 Hz
+  and the 50 ms merge makes them one trigger, so kicks trigger as before. The new band adds a
+  trigger of its own only where the low end moves without the rest (a bass note, a low tom):
+  offline, `Beat 001.wav` made into Arena's bins gives 7.50 triggers a second against 6.75
+  (+11%), `Bass 001.wav` 5.92 against 5.68 (+4%) (`matest --hostwav`).
+- **The log.** Every 30 s in which anything triggered, the plugin logs onsets per band and the
+  triggers they made ("onsets in 30 s (Resolume FFT): 40-160 Hz N, ..."), so a host run reads
+  which bands fire without a harness.
+- **`--hostfft`** builds the bins as Arena does (2048-point Hann, 16 fine bins to a bin, held
+  2048 samples) from 128 BPM loops at 48 and 44.1 kHz and fails against `8124191`'s centre rule
+  (`kCpuHostCentreOnly`), a plugin that ignores the host's rate (`kCpuIgnoreHostRate`) and one
+  with no merge (`kCpuNoMerge`).
 
 ## The idea
 
@@ -164,6 +198,13 @@ above baked).
 - **miniaudio runtime-links CoreAudio** (a dlopen at miniaudio.h:36584), so the interposer
   counts dlopens of the audio frameworks and `Audio*` dlsyms as well as the calls; its own
   control (gate off, Onsets) sees 2 dlopens, refused, so no device opens.
+- **A hit on Resolume's FFT can trigger twice.** The first `--hostfft` asked for one trigger
+  per hit and failed on the shipped code: a hit's attack reaches 640-2560 Hz one host update
+  (42.7 ms) before its low end, and with a frame's quantising the two onsets land 50 ms apart,
+  just outside the merge. v0.1.0 does the same (3 of 10 kicks); the check now counts doubles
+  and refuses only two triggers in one frame (what no merge gives). Open question 9.
+- **The lowest band's floor in silence is about 1e-4**, so leakage from hats alone fired it:
+  the claps-and-hats case asks only that it never fires on a frame no other band fired.
 - The machine's: heredocs hang without TMPDIR set; no `timeout` (perl alarm); in a while-read
   loop ffmpeg needs `-nostdin`; CMake needs `LANGUAGES C CXX` for the interposer's C; Apple's
   software renderer takes ~9.5 min for every check at 320x180, so verify.sh runs ten there.
@@ -179,7 +220,8 @@ read and rendered by oxbow.
 Assumed: [Lu]'s incompressible, immiscible inks; the hyperbolic decay αλ/(d + λ); λ = s/6;
 drops round and one colour; a moving stroke does not drag a drop that falls during it (the
 later op is composed after); the clip mirror-extended beyond the window; Resolume's FFT
-onsets usable (earshot's host fallback is frame-quantised and uncalibrated).
+onsets usable (earshot's host path is frame-quantised; its bins follow Arena 7.29.0's law as
+measured on one Mac on 2026-11-19).
 
 Not done: loading it into Resolume; a live device; a Windows build; a user guide, presets, an
 OpenFX port, a browser demo; antialiasing (edges are pixel-sharp; [Lu] uses 2×2 RGSS).
@@ -207,12 +249,14 @@ check (software = Apple's renderer at 320x180, in verify.sh unless said):
   9 min 32 s) passed all 55 checks, before the census's alpha rule, the six-case `--undo` and
   Auto Paper's wait: not re-run since.
 - `--triggers`: event times on the CPU in double, read from the plugin's log: no rasteriser.
+- `--hostfft`: earshot's host path on bins made in double; event times only, no rasteriser:
+  GPU only.
 - `--coreaudio`: a process-level interposer (DYLD_INSERT_LIBRARIES): macOS only.
 - `--model`, `--names`, `--cues`: no GL; run by `--offline`.
 
 ## The negative controls and mutants
 
-`matest --negative`, 20 wrong models, each must fail its check; a check with none fails:
+`matest --negative`, 23 wrong models, each must fail its check; a check with none fails:
 
 | check | wrong model |
 | --- | --- |
@@ -230,6 +274,9 @@ check (software = Apple's renderer at 320x180, in verify.sh unless said):
 | `--paper` | Paper does nothing |
 | `--alpha` | the clip sampled straight, not premultiplied |
 | `--triggers` | beats and onsets placed at the frame, not inside it |
+| `--hostfft` | Resolume's bins filed whole under the band holding each one's centre (earshot 8124191's rule): the lowest band gets none |
+| `--hostfft` | the host's sample rate never reaches earshot |
+| `--hostfft` | every band's onset a trigger of its own, none merged |
 | `--coreaudio` | the device menu listed and Audio Input applied whatever Trigger On says |
 | `--glstate` | the display pass leaves its program and textures bound |
 | `--robust` | nothing ever baked: ops pile up past what the shader traces |
@@ -306,7 +353,12 @@ block.
    `.wav`s), so the buffer was silent. With `Beat 001.wav` on the layer below and the Audio
    buffer on Composition, Onsets fired (39 of 39 snapshot pairs over 8.5 s changed; none at
    rest, on Local over the card or on External). Arena's audio settings were left as they were.
-   `matest --silent` still covers the empty-buffer case (no triggers, no crash).
+   `matest --silent` still covers the empty-buffer case (no triggers, no crash). That run's
+   triggers all came through 160-640 Hz and up: the lowest band got no bin until v0.1.1.
+9. **A hit can trigger twice on Resolume's FFT**, 50 ms apart (above, the traps): 4 of 10
+   kicks at 48 kHz offline, 0 at 44.1 kHz, and v0.1.0 the same. A wider merge (two host
+   updates, ~90 ms) would absorb it but would also merge real sixteenths at fast tempos; not
+   changed in a band-fix release.
 
 ## Browser demo
 
@@ -445,8 +497,8 @@ woofer's pattern.
   plugin, so the kit's alpha clip is left out; the warning is the page's; the About block is
   off the panel; nothing on the page is measured against Resolume (the crosscheck is against
   matest; the release's Arena checks, Mac and win-lab, drove the plugin, not this page); Onsets
-  on Resolume's FFT has not been seen to trigger in a host, and the plugin has never opened an
-  audio device.
+  on Resolume's FFT fire in Arena on the Mac (from v0.1.1 the lowest band too), and the plugin
+  has never opened an audio device.
 - **Traps hit**: the shim needs `(?:\.|->)Compile\(` in check_shaders (InitGL calls
   `stage.shader->Compile`); kit textures and framebuffers must be in emscripten's
   `GL.textures`/`GL.framebuffers` with `.name` set, or the plugin's saved-state glGet reads 0

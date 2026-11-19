@@ -23,7 +23,7 @@ const std::vector< CheckEntry >& checks()
 		{ "undo", runUndo, false },         { "period", runPeriod, false },     { "resample", runResample, false }, { "rate", runRate, false },
 		{ "clock", runClock, false },       { "resize", runResize, false },     { "paper", runPaper, false },       { "alpha", runAlpha, false },
 		{ "triggers", runTriggers, false }, { "coreaudio", runCoreaudio, false }, { "glstate", runGlstate, false }, { "robust", runRobust, false },
-		{ "model", runModel, true },        { "names", runNames, true },        { "cues", runCues, true },
+		{ "model", runModel, true },        { "names", runNames, true },        { "cues", runCues, true },          { "hostfft", runHostFft, false },
 	};
 	return list;
 }
@@ -69,6 +69,10 @@ int runNegative( bool offlineOnly = false, const std::string& only = "" )
 	add( "paper", "Paper does nothing", 0, kCpuIgnorePaper, 0 );
 	add( "alpha", "the clip sampled straight, not premultiplied", kHookNoPremultiply, 0, 0 );
 	add( "triggers", "beats and onsets placed at the frame, not inside it", 0, kCpuEventsAtFrame, 0 );
+	add( "hostfft", "Resolume's bins filed whole under the band holding each one's centre (earshot 8124191's rule): the lowest band gets none", 0,
+	     kCpuHostCentreOnly, 0 );
+	add( "hostfft", "the host's sample rate never reaches earshot", 0, kCpuIgnoreHostRate, 0 );
+	add( "hostfft", "every band's onset a trigger of its own, none merged", 0, kCpuNoMerge, 0 );
 	add( "coreaudio", "the device menu listed and Audio Input applied whatever Trigger On says", 0, kCpuIgnoreGate, 0 );
 	add( "glstate", "the display pass leaves its program and textures bound", 0, kCpuLeakState, 0 );
 	add( "robust", "nothing ever baked: ops pile up past what the shader traces", 0, kCpuNoBake, 0 );

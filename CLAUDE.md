@@ -57,15 +57,20 @@ bath's sequence or bake choice (`Bath::Trigger`, `Bath::BakeCount`), the event t
     blur, predicted per pixel and measured).
   - **Time and host**: `--rate` (24/60/144 fps), `--clock` (499 million ms), `--resize`,
     `--paper` (and Auto Paper waiting for the last stroke), `--alpha`, `--triggers` (presses,
-    beats, onsets through earshot), `--coreaudio` (an interposer counts audio calls in a child),
+    beats, onsets through earshot), `--hostfft` (onsets from Resolume's FFT: drum loops made
+    into 64 bins the way Arena was measured to make them, at 48 and 44.1 kHz; GPU only, not on
+    the software renderer), `--coreaudio` (an interposer counts audio calls in a child),
     `--glstate`, `--robust`.
   - **No GL**: `--model`, `--names`, `--cues` (also under `--offline`).
-- The checks can fail: `./build/matest --negative` (20 wrong models), `tools/mutate.sh`
+- The checks can fail: `./build/matest --negative` (23 wrong models), `tools/mutate.sh`
   (27 one-character mutants, arm64, 320x180, perl alarm at 300 s; its own tree, never a shared
   one; `tools/mutate.sh TEXT` runs only those whose description contains TEXT).
 - No dead controls: `python3 tools/sweep.py --build build` (`--bare` drops the contexts).
 - The demo clips: `python3 tools/clips.py alpha|defaults --build build` (Arena's media).
 - Render cost: `./build/matest --bench` (720p, 1080p, one 4K run).
+- Not a check, a measurement: `./build/matest --hostwav --wav F --frames N` makes a WAV into
+  Arena's 64 bins and counts the onsets by band and the triggers under this earshot and as
+  v0.1.0 read the bins (README's Status has `Beat 001.wav`'s).
 - `MATEST_RENDERER=software` runs any of it on Apple's software renderer.
 - **No step opens an audio device.** matest sets `MARBLING_NO_DEVICES=1` (its `--coreaudio`
   children set it or not, case by case, always under an interposer that refuses every audio
@@ -99,7 +104,7 @@ bath's sequence or bake choice (`Bath::Trigger`, `Bath::BakeCount`), the event t
   constructor nothing references.
 - The macOS build must be universal. Check with `lipo`, never the build log.
 - `external/earshot/` is a snapshot of earshot (`github.com/stoatworks-labs/earshot`) at
-  `8124191`, unpatched (`SNAPSHOT`). Never edit it here; change earshot upstream and take a new
+  `02306da`, unpatched (`SNAPSHOT`). Never edit it here; change earshot upstream and take a new
   snapshot. Its own CLAUDE.md and AGENTS.md are earshot's as of that commit, status lines and all.
 - **Generated, never hand-edited:** `source/StoatworksAbout*.h` (stoatworks-backend's
   `sync-about.py`), `ATTRIBUTIONS.md` and the README's attributions block
@@ -123,4 +128,6 @@ bath's sequence or bake choice (`Bath::Trigger`, `Bath::BakeCount`), the event t
     ~/Library/Logs/marbling/marbling.YYYY-MM-DD.log
     %LOCALAPPDATA%\marbling\logs\marbling.YYYY-MM-DD.log
 
-`MARBLING_LOG_DIR` overrides the folder.
+`MARBLING_LOG_DIR` overrides the folder. Under Onsets it logs the host's audio rate once per
+change ("host audio at 48000 Hz: Resolume's FFT bins are 375 Hz each") and, every 30 s of its
+clock in which anything fired, the onsets by band and the triggers they made.

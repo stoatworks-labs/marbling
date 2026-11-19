@@ -27,12 +27,12 @@ them](hero.png)
 than captured from Resolume: 4.9 s into the harness's music at the defaults, the last stroke
 just finished.*
 
-> **Before you rely on this:** this is **v0.1.0**, the first release, and early days. Every
+> **Before you rely on this:** this is **v0.1.1**, a fix to the first release, and early days. Every
 > tool is the closed form from Lu, Jaffer, Jin, Zhao and Mao's "Mathematical Marbling"
 > (2012), and an offline harness drives the plugin's own code on an Apple Silicon Mac's GPU
 > and on Apple's software renderer: a drop lands where the formula says to **2.8e-4 px**, a
 > block of the frame keeps its area through six stacked tools, and through a whole Nonpareil
-> **no pixel** is a blend of two inks. Twenty deliberately wrong versions of the plugin and
+> **no pixel** is a blend of two inks. Twenty-three deliberately wrong versions of the plugin and
 > twenty-seven one-character sabotages of its code are all caught. It registers and draws in
 > **Resolume Arena 7.29.0 on a Mac** and **7.27.1 on Windows**, and on the Mac its Trigger and
 > Paper buttons, the Beat trigger and every control did what the harness says they do. But
@@ -123,7 +123,9 @@ A pattern's strokes take one trigger each: Nonpareil is 12 triggers of drops, th
 
 - **Trigger On: Onsets** (default): drum hits, read from the audio by
   [earshot](https://github.com/stoatworks-labs/earshot), the fleet's live-audio front end.
-  Hits in different bands within 50 ms of each other count as one trigger. Where the audio
+  It listens in four bands, 40–160 Hz (kicks), 160–640 Hz, 640–2560 Hz and 2560–8000 Hz (hats),
+  and a hit in any of them is a trigger. Hits in different bands within 50 ms of each other
+  count as one trigger, so a kick that fires two bands moves the pattern once. Where the audio
   comes from is **Audio Input** (below).
 - **Beat**: every beat of Resolume's bar (each quarter), placed inside the frame where it
   falls. Resolume's tempo sets the pace.
@@ -145,7 +147,12 @@ Only used under **Onsets**.
 - **Resolume FFT** (default): Resolume's own audio analysis, the same the "Audio" source of
   any audio-reactive effect reads. It never opens a device. In Arena on a Mac, Arena's demo drum
   loop `Beat 001.wav` on the layer below fired it on its hits. Which of Resolume's audio it
-  hears is Resolume's **Audio** setting (below).
+  hears is Resolume's **Audio** setting (below). Resolume's analysis comes in 64 steps of
+  375 Hz; from v0.1.1 the plugin shares each step among the bands it overlaps, so the kick band
+  (40–160 Hz) hears its part of the lowest step and fires on kicks there. In v0.1.0 it never
+  fired on Resolume's FFT and kicks came through the 160–640 Hz band instead, so the pattern
+  moved then too; v0.1.1 adds triggers mainly where the low end moves on its own (a bass note,
+  a low tom).
 - **System default**: your computer's default input, opened by the plugin.
 - **A device by name**: the inputs the plugin found when Onsets was first used. The
   composition remembers the device's name, not its place in the list, so it finds the same
@@ -276,8 +283,14 @@ nothing has been timed inside Resolume.
 - **Onsets on Resolume's FFT have been tried on one drum loop.** In Arena on a Mac, Resolume's
   demo `Beat 001.wav` on the layer below fired them; no full mix has been played to it there,
   and a device as the Audio Input hasn't been tried in Resolume.
-- **Resolume's FFT onsets are coarser than a device's**: Resolume's analysis arrives once a
-  frame and isn't calibrated, so the timing of a hit is only as fine as the frame rate.
+- **Resolume's FFT onsets are coarser than a device's**: Resolume's analysis is refreshed about
+  every 43 ms (in Arena 7.29.0) and isn't calibrated, so a hit lands up to about two refreshes
+  and a frame late. Its lowest bin holds everything from 0 to 375 Hz, so a bass note can fire
+  the kick band as well as a kick can.
+- **A hit can count twice on Resolume's FFT.** When a hit's attack reaches the upper bands one
+  refresh before its low end does, the two can fall 50 ms apart, just outside the window that
+  makes them one trigger, and the pattern takes two steps. The harness saw it on about four
+  kicks in ten; v0.1.0 did the same.
 - **How long a finished pattern shows** is one trigger's interval at least: on fast onsets
   (four a second) that's a quarter of a second. A hold control is an open question.
 - **The comb's sharpness is a choice.** Every comb's wake is set by λ = spacing / 6, and that

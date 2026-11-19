@@ -1,5 +1,5 @@
 //===========================================================================
-// Time and the host: --rate, --clock, --resize, --paper, --alpha, --triggers.
+// Time and the host: --rate, --clock, --resize, --paper, --alpha, --triggers, --hostfft.
 //===========================================================================
 
 /// Gelgit, eight big drops a trigger: two triggers cover the window, the
@@ -566,4 +566,379 @@ int runTriggers( const Perturb& perturb )
 		            fps, n, unmatched, late * 1e3, missed, doubled, worst * 1e3 ) );
 	}
 	return Verdict();
+}
+
+//===========================================================================
+// --hostfft: Onsets on Resolume's own FFT, earshot's host path alone. A drum
+// loop becomes the 64 bins Arena 7.29.0 was measured to send (earshot's
+// AGENTS.md, "Resolume's 64 bins, measured") and is handed to the plugin as
+// its FF_USAGE_FFT buffer, element by element, as a host does; nothing goes
+// through feed(). Under earshot 8124191 (each bin whole to the band holding
+// its centre) the lowest band, 40-160 Hz, got no bin and never fired: a kick
+// triggered through 160-640 Hz alone.
+//===========================================================================
+
+/// Arena's FFT buffer as measured: every 2048 samples of the engine's rate, a
+/// 2048-point Hann-windowed DFT of the newest 2048 samples (the mono sum
+/// (L + R) / 2: the loop is the same on both sides), and bin k the sum of
+/// |X_i| / 2N over the 16 fine bins 16k .. 16k + 15. That is linear, fs / 128
+/// a bin (375 Hz at 48 kHz) to fs / 2, a magnitude, a sine of amplitude A
+/// reading A / 4 in its bin and 0.75 of that split 1 : 3 on a boundary, as
+/// measured. Held between updates, as Arena holds it. (snowglobe's sgtest.)
+struct HostSpectrum
+{
+	static constexpr int kN = 2048;
+	int rate;
+	std::function< double( double ) > signal;
+	std::vector< float > bins = std::vector< float >( 64, 0.0f );
+	int64_t updated           = -1;
+
+	HostSpectrum( int r, std::function< double( double ) > s ) : rate( r ), signal( std::move( s ) ) {}
+
+	const std::vector< float >& at( double t )
+	{
+		const int64_t u = static_cast< int64_t >( std::floor( t * rate / kN + 1e-9 ) );
+		if( u == updated )
+			return bins;
+		updated = u;
+		std::vector< std::complex< double > > x( kN );
+		for( int n = 0; n < kN; ++n )
+		{
+			const int64_t sample = u * kN - kN + n;
+			const double hann    = 0.5 - 0.5 * std::cos( 2.0 * kPi * n / kN );
+			x[ static_cast< size_t >( n ) ] = hann * signal( static_cast< double >( sample ) / rate );
+		}
+		//Radix-2, in place.
+		for( int i = 1, j = 0; i < kN; ++i )
+		{
+			int bit = kN >> 1;
+			for( ; j & bit; bit >>= 1 )
+				j ^= bit;
+			j ^= bit;
+			if( i < j )
+				std::swap( x[ static_cast< size_t >( i ) ], x[ static_cast< size_t >( j ) ] );
+		}
+		for( int len = 2; len <= kN; len <<= 1 )
+		{
+			const std::complex< double > w = std::polar( 1.0, -2.0 * kPi / len );
+			for( int i = 0; i < kN; i += len )
+			{
+				std::complex< double > wk( 1.0, 0.0 );
+				for( int k = 0; k < len / 2; ++k )
+				{
+					const auto a = x[ static_cast< size_t >( i + k ) ], b = x[ static_cast< size_t >( i + k + len / 2 ) ] * wk;
+					x[ static_cast< size_t >( i + k ) ]           = a + b;
+					x[ static_cast< size_t >( i + k + len / 2 ) ] = a - b;
+					wk *= w;
+				}
+			}
+		}
+		for( int k = 0; k < 64; ++k )
+		{
+			double sum = 0.0;
+			for( int i = 16 * k; i < 16 * k + 16; ++i )
+				sum += std::abs( x[ static_cast< size_t >( i ) ] );
+			bins[ static_cast< size_t >( k ) ] = static_cast< float >( sum / ( 2.0 * kN ) );
+		}
+		return bins;
+	}
+};
+
+/// 128 BPM (Arena's Beat 001), so the hits fall at every phase of the
+/// 2048-sample updates. The parts: the harness's kick on every beat; a clap on
+/// two and four and hats on the eighths between, as noise twice differenced
+/// (-52 dB at 375 Hz), so they put nothing in bin 0; a 49 Hz bass held
+/// throughout, in bin 0 with the kick.
+constexpr double kLoopBeat = 60.0 / 128.0;
+enum LoopPart : int
+{
+	kLoopKick = 1,
+	kLoopTop  = 2,///< claps and hats
+	kLoopBass = 4
+};
+
+double drumLoopAt( double t, int parts, int rate )
+{
+	if( t < 0.0 )
+		return 0.0;
+	//The sample's own index, rounded: truncating t * rate repeats and skips
+	//samples, and a differenced noise that does is no longer high-passed.
+	const uint32_t n  = static_cast< uint32_t >( std::llround( t * rate ) );
+	const double beat = std::fmod( t, kLoopBeat );
+	double s          = 0.0;
+	if( parts & kLoopBass )
+		s += 0.2 * std::sin( 2.0 * kPi * 49.0 * t );
+	if( parts & kLoopKick )
+		s += 0.6 * std::exp( -beat / 0.06 ) * std::sin( 2.0 * kPi * ( 55.0 + 60.0 * std::exp( -beat / 0.02 ) ) * beat );
+	if( parts & kLoopTop )
+	{
+		auto hiss = [ n ]( uint32_t seed ) { return Hash01( n, seed ) - 2.0 * Hash01( n - 1u, seed ) + Hash01( n - 2u, seed ); };
+		const double clap = std::fmod( t, 2.0 * kLoopBeat ) - kLoopBeat;
+		if( clap >= 0.0 )
+			s += 0.3 * std::exp( -clap / 0.03 ) * hiss( 11u );
+		const double hat = std::fmod( t + kLoopBeat / 2.0, kLoopBeat );
+		s += 0.2 * std::exp( -hat / 0.01 ) * hiss( 7u );
+	}
+	return s;
+}
+
+/// What the plugin did on Arena-made bins: each band's onsets and every
+/// trigger, in seconds on the plugin's clock, and the rate earshot read at.
+struct HostRun
+{
+	std::vector< double > band[ earshot::kMaxBands ];
+	std::vector< double > triggers;
+	int bandCount   = 0;
+	double hostRate = 0.0;
+};
+
+/// The bins made at `rate`; the plugin told `lawRate` by SetSampleRate (-1:
+/// `rate`, 0: nothing sent). 320x180, Stone with small drops (the picture is
+/// not judged), Onsets on Resolume FFT.
+bool runOnHostBins( const Perturb& perturb, int rate, const std::function< double( double ) >& signal, double seconds, HostRun& out, int lawRate = -1 )
+{
+	const Raster raster = kRasters.back();
+	Rig rig;
+	if( !startRig( rig, raster.w, raster.h, perturb ) )
+		return false;
+	if( lawRate < 0 )
+		lawRate = rate;
+	if( lawRate > 0 )
+		rig.plugin.SetSampleRate( static_cast< unsigned int >( lawRate ) );
+	rig.Set( PT_PATTERN, static_cast< float >( Pattern::Stone ) );
+	rig.Set( PT_DROP_SIZE, ParamFromDropRadius( 0.02 ) );
+	rig.Set( PT_TRIGGER_ON, static_cast< float >( TriggerOn::Onsets ) );
+	rig.Set( PT_INPUT, 0.0f );//Resolume FFT
+	HostSpectrum host( rate, signal );
+	uint32_t seen[ earshot::kMaxBands ] = {};
+	const int frames = static_cast< int >( std::lround( seconds * rig.fps ) );
+	for( int f = 0; f < frames; ++f )
+	{
+		const double t                = rig.Seconds( rig.frame );
+		const std::vector< float >& b = host.at( t );
+		for( unsigned int j = 0; j < 64; ++j )
+			rig.plugin.SetParamElementValue( PT_AUDIO, j, b[ j ] );
+		if( !rig.Render( 1 ) )
+			return false;
+		const earshot::Frame& fr = rig.plugin.AudioForTest().Frame();
+		out.bandCount            = std::min( fr.bandCount, earshot::kMaxBands );
+		for( int k = 0; k < out.bandCount; ++k )
+		{
+			//The first frame primes: counts already standing are not onsets.
+			if( f > 0 )
+				for( uint32_t n = seen[ k ]; n < fr.bands[ k ].onsetCount; ++n )
+					out.band[ k ].push_back( t );
+			seen[ k ] = fr.bands[ k ].onsetCount;
+		}
+	}
+	for( const TriggerRecord& r : rig.plugin.TriggerLog() )
+		out.triggers.push_back( static_cast< double >( r.us ) * 1e-6 );
+	out.hostRate = rig.plugin.AudioForTest().HostRateForTest();
+	return true;
+}
+
+/// Events against hits: each event matched to the latest hit at or before it
+/// within `late`. Hits before `from` or too near the end are not counted.
+struct Matched
+{
+	int events = 0, hits = 0, missed = 0, doubled = 0, unmatched = 0;
+	double worst = 0.0;
+};
+
+Matched matchHits( const std::vector< double >& events, const std::vector< double >& hits, double late, double from, double to )
+{
+	Matched m;
+	std::vector< int > per( hits.size(), 0 );
+	for( double t : events )
+	{
+		if( t < from )
+			continue;
+		++m.events;
+		int best = -1;
+		for( size_t h = 0; h < hits.size(); ++h )
+			if( hits[ h ] <= t + 1e-9 && t - hits[ h ] <= late )
+				best = static_cast< int >( h );
+		if( best < 0 )
+			++m.unmatched;
+		else
+		{
+			++per[ static_cast< size_t >( best ) ];
+			m.worst = std::max( m.worst, t - hits[ static_cast< size_t >( best ) ] );
+		}
+	}
+	for( size_t h = 0; h < hits.size(); ++h )
+	{
+		if( hits[ h ] < from || hits[ h ] + late > to )
+			continue;
+		++m.hits;
+		m.missed += per[ h ] == 0;
+		m.doubled += per[ h ] > 1;
+	}
+	return m;
+}
+
+int runHostFft( const Perturb& perturb )
+{
+	std::printf( "\n=== hostfft: Onsets on Resolume's FFT alone (the bins as Arena 7.29.0 sends them, nothing fed), at 128 BPM: kicks alone fire "
+	             "the lowest band (40-160 Hz) once each, in the frame 160-640 Hz fires, the two one trigger, every kick triggering, at 48 and at "
+	             "44.1 kHz, within two of the host's updates and a frame; in a drum loop the lowest band fires on every kick and nothing else, "
+	             "and every hit triggers; claps and hats alone trigger once each, and the lowest band never on its own; over a bass held in "
+	             "bin 0 no kick is missed by the lowest band; earshot reads the bins at the host's rate\n" );
+	const double kSeconds = 6.0, kFrom = 1.0;//the first second primes earshot's floors
+	struct Run
+	{
+		int rate;
+		int parts;
+		const char* what;
+	};
+	const Run runs[] = {
+		{ 48000, kLoopKick, "kicks alone" },
+		{ 44100, kLoopKick, "kicks alone" },
+		{ 48000, kLoopKick | kLoopTop, "the drum loop" },
+		{ 48000, kLoopTop, "claps and hats alone" },
+		{ 48000, kLoopKick | kLoopTop | kLoopBass, "the drum loop over a held 49 Hz bass" },
+	};
+	for( const Run& run : runs )
+	{
+		const int parts = run.parts, rate = run.rate;
+		HostRun r;
+		if( !runOnHostBins( perturb, run.rate, [ parts, rate ]( double t ) { return drumLoopAt( t, parts, rate ); }, kSeconds, r ) )
+			return 1;
+		//Seen by the second update after the hit at the latest (the first may
+		//hold only its window's Hann-weighted tail), then read at the next frame.
+		const double late = 2.0 * HostSpectrum::kN / run.rate + 1.0 / 60.0 + 1e-6;
+		std::vector< double > kicks, hits;
+		for( int k = 0; k * kLoopBeat < kSeconds; ++k )
+		{
+			if( parts & kLoopKick )
+				kicks.push_back( k * kLoopBeat );
+			if( ( parts & kLoopKick ) || ( ( parts & kLoopTop ) && k % 2 == 1 ) )
+				hits.push_back( k * kLoopBeat );//a kick, or a clap alone
+			if( parts & kLoopTop )
+				hits.push_back( ( k + 0.5 ) * kLoopBeat );
+		}
+		std::string perBand;
+		for( int b = 0; b < r.bandCount; ++b )
+		{
+			int n = 0;
+			for( double t : r.band[ b ] )
+				n += t >= kFrom;
+			perBand += fmt( "%s%d", b == 0 ? "" : " / ", n );
+		}
+		//A lowest-band onset on a frame where no other band fired: a trigger
+		//of its own. On a frame where one did, the merge makes them one.
+		int alone = 0, withMid = 0, low = 0;
+		for( double t : r.band[ 0 ] )
+		{
+			if( t < kFrom )
+				continue;
+			++low;
+			bool other = false;
+			for( int b = 1; b < r.bandCount; ++b )
+				other = other || std::find( r.band[ b ].begin(), r.band[ b ].end(), t ) != r.band[ b ].end();
+			alone += !other;
+			withMid += std::find( r.band[ 1 ].begin(), r.band[ 1 ].end(), t ) != r.band[ 1 ].end();
+		}
+		int sameFrame = 0;
+		for( size_t k = 1; k < r.triggers.size(); ++k )
+			sameFrame += r.triggers[ k ] == r.triggers[ k - 1 ];
+		Info( fmt( "%s, %d Hz, 1..6 s: onsets by band (40-160 / 160-640 / 640-2560 / 2560-8000 Hz) %s; %zu triggers in all", run.what, run.rate,
+		           perBand.c_str(), r.triggers.size() ) );
+		const Matched lo  = matchHits( r.band[ 0 ], kicks, late, kFrom, kSeconds );
+		const Matched all = matchHits( r.triggers, hits, late, kFrom, kSeconds );
+		const std::string loLine =
+			fmt( "%s, %d Hz, 1..6 s: the lowest band fired %d times for %d kicks; %d missed, %d doubled, latest %.1f ms after its kick (limit %.1f); "
+		         "%d not within that of a kick",
+		         run.what, run.rate, lo.events, lo.hits, lo.missed, lo.doubled, lo.worst * 1e3, late * 1e3, lo.unmatched );
+		const std::string allLine = fmt( "%s, %d Hz, 1..6 s: %d triggers for %d hits; %d missed, %d doubled, latest %.1f ms after its hit; %d not within "
+		                                 "that of a hit; %d pairs in one frame",
+		                                 run.what, run.rate, all.events, all.hits, all.missed, all.doubled, all.worst * 1e3, all.unmatched, sameFrame );
+		if( parts == kLoopKick )
+		{
+			Check( lo.events > 0 && lo.missed == 0 && lo.doubled == 0 && lo.unmatched == 0, loLine );
+			Check( withMid == low, fmt( "%s, %d Hz: %d of the lowest band's %d onsets on a frame 160-640 Hz fired too (want all: a kick is in bin 0, "
+			                            "which both bands share)",
+			                            run.what, run.rate, withMid, low ) );
+			//The two bands bin 0 feeds fire in one frame and make one trigger. A
+			//kick's attack can reach 640-2560 Hz one host update (43 ms) before
+			//its body crosses in bin 0, and two updates seen three frames apart
+			//are 50 ms apart, the merge window: a second trigger, counted.
+			Check( all.events > 0 && all.missed == 0 && all.unmatched == 0 && sameFrame == 0,
+			       allLine + " (want every kick, its two low bands one trigger; a second trigger an update later, from the attack reaching "
+			                 "640-2560 Hz first, counted, not refused)" );
+		}
+		else if( !( parts & kLoopKick ) )
+		{
+			Check( all.events > 0 && all.missed == 0 && all.doubled == 0 && all.unmatched == 0 && sameFrame == 0, allLine );
+			Check( alone == 0, fmt( "%s, %d Hz: the lowest band fired %d times, %d of them on a frame no other band fired (want none: it adds no "
+			                        "trigger of its own)",
+			                        run.what, run.rate, low, alone ) );
+		}
+		else if( parts & kLoopBass )
+			Check( lo.events > 0 && lo.missed == 0, loLine + " (counted, not refused: a held bass in bin 0 beats against the kick's tail)" );
+		else
+		{
+			Check( lo.events > 0 && lo.missed == 0 && lo.doubled == 0 && lo.unmatched == 0, loLine );
+			//A hit's attack (a kick's, a clap's crack over a kick) can reach the
+			//upper bands one host update before its low end crosses, 50 ms
+			//apart once frame-quantised: a second trigger, counted, not refused.
+			Check( all.events > 0 && all.missed == 0 && all.unmatched == 0 && sameFrame == 0,
+			       allLine + " (doubles counted, not refused: a hit's attack can reach the upper bands one host update before its low end)" );
+		}
+		if( run.rate != 48000 || parts == kLoopKick )
+			Check( std::fabs( r.hostRate - run.rate ) < 1e-9, fmt( "the host says %d Hz: earshot reads its bins at %.0f Hz", run.rate, r.hostRate ) );
+	}
+	//A rate no engine runs at is not one: earshot keeps its 48 kHz.
+	{
+		const Raster raster = kRasters.back();
+		Rig rig;
+		if( !startRig( rig, raster.w, raster.h, perturb ) )
+			return 1;
+		rig.plugin.SetSampleRate( 0u );
+		rig.Set( PT_TRIGGER_ON, static_cast< float >( TriggerOn::Onsets ) );
+		if( !rig.Render( 2 ) )
+			return 1;
+		const double hostRate = rig.plugin.AudioForTest().HostRateForTest();
+		Check( std::fabs( hostRate - 48000.0 ) < 1e-9, fmt( "a host rate of 0: earshot keeps %.0f Hz (want 48000)", hostRate ) );
+	}
+	return Verdict();
+}
+
+//===========================================================================
+// --hostwav --wav PATH: not a check, a measurement. The WAV, looped, made into
+// Arena's bins at 48 kHz as above, played to the plugin for --frames frames
+// at 60 fps under earshot 0.1.1 (bins shared, read at the 48 kHz the host
+// sends) and as v0.1.0 read them (8124191: each bin whole to the band
+// holding its centre, read as 64 bins to 22.05 kHz): the onsets by band, the
+// triggers, and how many of the lowest band's onsets came on a frame where
+// 160-640 Hz fired too.
+//===========================================================================
+int runHostWav( double seconds )
+{
+	if( g_wav.mono.empty() )
+	{
+		std::fprintf( stderr, "--hostwav needs --wav PATH\n" );
+		return 2;
+	}
+	std::printf( "\n=== hostwav: a WAV (%d Hz, %.2f s, looped) made into Arena's 64 bins at 48 kHz, %.0f s at 60 fps, Onsets on Resolume FFT\n",
+	             g_wav.rate, static_cast< double >( g_wav.mono.size() ) / g_wav.rate, seconds );
+	for( int rule = 0; rule < 2; ++rule )
+	{
+		Perturb p;
+		p.cpuHooks = rule == 1 ? kCpuHostCentreOnly : 0;
+		HostRun r;
+		if( !runOnHostBins( p, 48000, wavAt, seconds, r, rule == 1 ? 44100 : 48000 ) )
+			return 1;
+		std::string perBand;
+		for( int b = 0; b < r.bandCount; ++b )
+			perBand += fmt( "%s%zu", b == 0 ? "" : " / ", r.band[ b ].size() );
+		int together = 0;
+		for( double t : r.band[ 0 ] )
+			together += std::find( r.band[ 1 ].begin(), r.band[ 1 ].end(), t ) != r.band[ 1 ].end();
+		std::printf( "  %-44s onsets by band (40-160 / 160-640 / 640-2560 / 2560-8000 Hz) %s; %zu triggers (%.2f a second); "
+		             "%d of the lowest band's onsets on a frame 160-640 Hz fired too\n",
+		             rule == 0 ? "v0.1.1 (earshot 02306da, bins shared, 48 kHz):" : "v0.1.0 (earshot 8124191, bin to its centre):", perBand.c_str(),
+		             r.triggers.size(), static_cast< double >( r.triggers.size() ) / seconds, together );
+	}
+	return 0;
 }

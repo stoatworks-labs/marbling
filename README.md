@@ -17,7 +17,7 @@
 > whole Nonpareil, **no pixel** is a blend of inks or a colour that was never dropped. One bake's
 > resampling is the one place the picture blurs, and it is measured, not hidden: at the default
 > comb, **12%** of pixels move more than half a pixel at 1280x720. 24, 60 and 144 fps give **the
-> same picture** (compared at 320x180). **20** deliberately wrong models and **27** one-character mutants of the
+> same picture** (compared at 320x180). **23** deliberately wrong models and **27** one-character mutants of the
 > shipped code are all caught. The patterns' depths and the drops' sizes are **chosen** (no
 > source gives them as fractions of a tray): see [Status](#status).
 
@@ -100,9 +100,12 @@ them. s is Tine Spacing (the ¼" comb; ½" = 2s, 1" = 4s).
 ## Triggers
 
 - **Onsets** (the default): drum hits, from [earshot](https://github.com/stoatworks-labs/earshot),
-  the fleet's live-audio front end ([a snapshot](external/earshot/SNAPSHOT) of commit `8124191`,
+  the fleet's live-audio front end ([a snapshot](external/earshot/SNAPSHOT) of commit `02306da`,
   unmodified). Resolume's FFT by default, or a capture
-  device. Bands that fire within 50 ms are one trigger.
+  device. Four bands, 40–160, 160–640, 640–2560 and 2560–8000 Hz, and any of them can trigger;
+  bands that fire within 50 ms are one trigger. On Resolume's FFT, whose 64 bins are 375 Hz each,
+  each bin is shared among the bands it overlaps, so the lowest band (the kick's) gets a third
+  of the lowest bin; before v0.1.1 it got none and never fired there.
 - **Beat**: each quarter of Resolume's bar, placed inside the frame.
 - **Manual**: the Trigger button only. The button works under every source.
 
@@ -133,7 +136,9 @@ bit.
 
 ## Status
 
-**v0.1.0, 18 November 2026, and early days.** It has been loaded into Resolume Arena 7.29.0
+**v0.1.1, 19 November 2026, and early days.** v0.1.1 makes the lowest onset band, 40–160 Hz,
+fire on Resolume's FFT: in v0.1.0 it never did, and kicks triggered through the 160–640 Hz band
+alone (below). The rest is v0.1.0's, of 18 November. It has been loaded into Resolume Arena 7.29.0
 on a Mac and 7.27.1 on Windows, over a test card only (below). It hasn't been through a show,
 nothing has been timed inside Resolume, and it has never opened a live audio device.
 `oxbow probe` reads the bundle as a host does (`SW Marbling` / `MA01` / effect, inputs 1..1).
@@ -226,6 +231,19 @@ AGENTS.md has them all.
   apart) and 0 pixels different at 2.75 s. Resolume's clock at 499 million ms: bit-identical.
   Beats land inside the frame to 0 µs; onsets fed through earshot land 0–26.7 ms after the hit
   (one analysis window), latest 6.0 ms, none missed or doubled.
+- **Resolume's FFT** (`--hostfft`, new in v0.1.1). 64 bins built from 128 BPM drum loops the way
+  Arena 7.29.0 was measured to build them (2048-point Hann, 16 fine bins to a bin, each held 2048
+  samples) and written into the plugin's FFT buffer, nothing fed. Kicks alone, at 48 and 44.1
+  kHz: the lowest band fired on 10 of 10 kicks, each time in the frame 160–640 Hz fired, and
+  every kick triggered, latest 62.5 ms after it (two of the host's updates and a frame is 102–110
+  ms). In a drum loop the lowest band fired on every kick and nothing else; claps and hats alone
+  triggered once each and the lowest band never on its own; over a held 49 Hz bass no kick was
+  missed. Against v0.1.0's earshot the lowest band fires on none of the kicks, and the check
+  fails. `Beat 001.wav` made into those bins for 60 s (`--hostwav`): 7.50 triggers a second
+  against v0.1.0's 6.75; `Bass 001.wav` 5.92 against 5.68. On a kick the new band fires with
+  160–640 Hz and is merged into the same trigger, so the extra triggers come where the low end
+  moves alone. A hit can trigger twice, 50 ms apart, when its attack reaches 640–2560 Hz one
+  host update before its low end (4 of 10 kicks at 48 kHz, 0 at 44.1 kHz; v0.1.0 does it too).
 - **Raster, paper, alpha.** A resize mid-run: every judged pixel on the per-pixel prediction. Paper:
   the clip back bit for bit. Mix 0: 0 of 3.7 million floats differ; white under transparent
   pixels: 0 floats differ, on the coordinate card and on Arena's two DXV alpha clips.
@@ -248,9 +266,10 @@ AGENTS.md has them all.
   compressing a surfactant film. No feathering, no ink sinking, no colour mixing at an edge.
 - A stroke still moving does not drag a drop that falls during it (the later op is composed
   after it).
-- **Onsets on Resolume's FFT on a real mix.** They fire in Arena on a Mac with a demo drum loop
-  (above); nothing else has been played to it there. Offline, earshot's host fallback is
-  frame-quantised and uncalibrated.
+- **Onsets on Resolume's FFT on a real mix.** They fire in Arena on a Mac with two demo loops
+  (above); nothing else has been played to it there. The host path is frame-quantised (a new
+  spectrum about every 43 ms), its bins were measured in Arena 7.29.0 on one Mac only, and a hit
+  can trigger twice. The 50 ms merge was not changed for that.
 - **A live audio device.** Never opened: the device path is earshot's, tested there on a
   scripted backend.
 - **How long a finished pattern should show.** Auto Paper waits for the last stroke, then lays

@@ -103,9 +103,9 @@ pin="$(git -C external/ffgl rev-parse --short=7 HEAD)"
 echo "ok   FFGL SDK pinned at $pin"
 # earshot is a snapshot, not a submodule: the commit it came from and that it
 # is unpatched are written in it, and AGENTS.md repeats both.
-grep -q '^Commit:   8124191 ' external/earshot/SNAPSHOT || fail "external/earshot/SNAPSHOT is not earshot 8124191"
+grep -q '^Commit:   02306da ' external/earshot/SNAPSHOT || fail "external/earshot/SNAPSHOT is not earshot 02306da"
 grep -q '^Patches:  none' external/earshot/SNAPSHOT || fail "external/earshot/SNAPSHOT records a patch: AGENTS.md must say what and why"
-echo "ok   earshot snapshot 8124191, unpatched"
+echo "ok   earshot snapshot 02306da, unpatched"
 
 #---------------------------------------------------------------------------
 step "Build (universal)"
@@ -184,9 +184,9 @@ check_bundle "Marbling" "com.stoatworks.ffgl.marbling" "SW Marbling" "MA01" "eff
 step "Checks (this Mac's GPU, 1280x720 and 320x180)"
 #---------------------------------------------------------------------------
 # Every claim the README makes. The picture checks run at both rasters
-# themselves; rate, clock, triggers and coreaudio measure time and the audio
-# path, and run at 320x180; model, names and cues need no GL context.
-CHECKS="drop rings jacobian ink undo period resample rate clock resize paper alpha triggers coreaudio glstate robust model names cues"
+# themselves; rate, clock, triggers, hostfft and coreaudio measure time and
+# the audio path, and run at 320x180; model, names and cues need no GL context.
+CHECKS="drop rings jacobian ink undo period resample rate clock resize paper alpha triggers hostfft coreaudio glstate robust model names cues"
 for check in $CHECKS; do
 	if out=$( "$MATEST" --$check 2>&1 ); then
 		printf '   ok   matest --%s: %s checks\n' "$check" "$( printf '%s\n' "$out" | grep -c '^  ok' )"
@@ -208,8 +208,8 @@ step "Software renderer (Apple's, at 320x180)"
 # The picture checks on Apple's software renderer: would the claims hold on
 # another rasteriser? Its sin is off by up to 1.1e-3 (the fleet's trap: the
 # shader's own series is used), and it is slow, so the checks that render
-# hundreds of frames (ink, rate, triggers, robust, resize) run on the GPU
-# only; AGENTS.md says which and why.
+# hundreds of frames (ink, rate, triggers, hostfft, robust, resize) run on the
+# GPU only; AGENTS.md says which and why.
 SOFTWARE="drop rings jacobian undo period resample paper alpha clock glstate"
 for check in $SOFTWARE; do
 	if out=$( MATEST_RENDERER=software "$MATEST" --$check --size 320x180 2>&1 ); then
