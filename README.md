@@ -67,6 +67,15 @@ macOS builds are signed and notarised and open normally. The Windows builds are 
 
 <!-- downloads:end -->
 
+## Video
+
+> **Photosensitivity warning:** the combed patterns in the video (Gelgit, Chevron, Nonpareil,
+> Bouquet, French Curl) fill the screen with fine, high-contrast stripes. Large-area flashes in
+> the video are kept to three a second or fewer, and over all 33 of Resolume's demo clips the
+> plugin never went over three flashes a second.
+
+[![Marbling: paper marbling with your clip's colours as the inks, for Resolume](docs/video-thumb.png)](https://www.youtube.com/watch?v=CnnqIBdw1AY)
+
 ## The one idea
 
 **Every stroke a marbler makes is a map of the water's surface onto itself that moves ink and
